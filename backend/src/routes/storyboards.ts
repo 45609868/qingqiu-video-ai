@@ -4,6 +4,8 @@ import { db, schema } from '../db/index.js'
 import { success, created, now, badRequest } from '../utils/response.js'
 import { toSnakeCase } from '../utils/transform.js'
 import { generateDialogueTTS } from '../services/tts-generation.js'
+import { generateVideo } from '../services/video-generation.js'
+import { composeStoryboard } from '../services/ffmpeg-compose.js'
 import { parseDialogueSegments, resolveCharacterVoice, stringifySubtitleSegments } from '../services/dialogue-utils.js'
 import { logTaskError, logTaskPayload, logTaskProgress, logTaskStart, logTaskSuccess } from '../utils/task-logger.js'
 
@@ -211,5 +213,88 @@ app.delete('/:id', async (c) => {
   logTaskSuccess('StoryboardAPI', 'delete', { storyboardId: id })
   return success(c)
 })
+
+// POST /storyboards/:id/regenerate — 单镜头重新生成（视频+TTS+合成）
+app.post('/:id/regenerate', async (c) => {
+  const id = Number(c.req.param('id'))
+  const [sb] = db.select().from(schema.storyboards).where(eq(schema.storyboards.id, id)).all()
+  if (!sb) return badRequest(c, '镜头不存在')
+
+  logTaskStart('StoryboardAPI', 'regenerate', {
+    storyboardId: id,
+    episodeId: sb.episodeId,
+    storyboardNumber: sb.storyboardNumber,
+  })
+
+  try {
+    // Reset generation status for this shot
+    db.update(schema.storyboards)
+      .set({
+        videoUrl: null,
+        ttsAudioUrl: null,
+        subtitleUrl: null,
+        composedVideoUrl: null,
+        status: 'pending',
+        updatedAt: now(),
+      })
+      .where(eq(schema.storyboards.id, id))
+      .run()
+
+    // Re-generate video first (requires image)
+    if (sb.firstFrameImage || sb.composedImage) {
+      const imageUrl = sb.firstFrameImage || sb.composedImage || ''
+      const [ep] = db.select().from(schema.episodes).where(eq(schema.episodes.id, sb.episodeId)).all()
+      const configId = ep?.videoConfigId || null
+
+      logTaskProgress('StoryboardAPI', 'regenerate-video', { storyboardId: id, imageUrl })
+      const videoId = await generateVideo({
+        storyboardId: id,
+        dramaId: ep?.dramaId,
+        prompt: sb.videoPrompt || sb.description || '',
+        firstFrameUrl: imageUrl || undefined,
+        referenceMode: imageUrl ? 'first_frame' : 'none',
+        duration: sb.duration || 5,
+        configId: configId || undefined,
+      })
+      await waitForVideoRegeneration(videoId, 600_000)
+    }
+
+    // Re-compose (video + TTS + subtitles)
+    await composeStoryboard(id)
+
+    const [updated] = db.select().from(schema.storyboards).where(eq(schema.storyboards.id, id)).all()
+    logTaskSuccess('StoryboardAPI', 'regenerate', {
+      storyboardId: id,
+      videoUrl: updated?.videoUrl,
+      composedVideoUrl: updated?.composedVideoUrl,
+    })
+    return success(c, {
+      message: 'Regenerated successfully',
+      storyboard_id: id,
+      video_url: updated?.videoUrl,
+      composed_video_url: updated?.composedVideoUrl,
+    })
+  } catch (err: any) {
+    logTaskError('StoryboardAPI', 'regenerate', { storyboardId: id, error: err.message })
+    db.update(schema.storyboards)
+      .set({ status: 'failed', updatedAt: now() })
+      .where(eq(schema.storyboards.id, id))
+      .run()
+    return badRequest(c, err.message)
+  }
+})
+
+async function waitForVideoRegeneration(videoId: number, timeoutMs: number): Promise<void> {
+  const start = Date.now()
+  while (Date.now() - start < timeoutMs) {
+    const [record] = db.select().from(schema.videoGenerations)
+      .where(eq(schema.videoGenerations.id, videoId)).all()
+    if (!record) return
+    if (record.status === 'completed') return
+    if (record.status === 'failed') throw new Error(record.errorMsg || 'Video generation failed')
+    await new Promise(r => setTimeout(r, 10000))
+  }
+  throw new Error('Video regeneration timeout')
+}
 
 export default app

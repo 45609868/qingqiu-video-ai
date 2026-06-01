@@ -24,6 +24,7 @@ interface EpisodeTask {
   status: 'pending' | 'running' | 'completed' | 'failed'
   error?: string
   step?: string
+  failedStoryboardIds?: number[]  // Track failed storyboard IDs for retry
 }
 
 interface BatchTask {
@@ -164,6 +165,111 @@ app.delete('/:taskId', async (c) => {
   return success(c, { cancelled: taskId })
 })
 
+// POST /dramas/:id/batch-generate/:taskId/retry — Retry only failed storyboards
+app.post('/:taskId/retry', async (c) => {
+  const taskId = c.req.param('taskId')
+  const body = await c.req.json()
+  const { episode_id, storyboard_ids } = body
+
+  const task = batchTasks.get(taskId)
+  if (!task) return notFound(c, 'Batch task not found')
+
+  // If episode_id provided, retry failed storyboards for that specific episode
+  // Otherwise retry all failed storyboards across all episodes
+  const targetEps = episode_id
+    ? task.episodes.filter(e => e.episodeId === episode_id)
+    : task.episodes.filter(e => e.status === 'failed')
+
+  if (!targetEps.length) return success(c, { message: 'No failed storyboards to retry' })
+
+  logTaskStart('BatchTask', 'retry-failed', { taskId, episodes: targetEps.map(e => e.episodeId) })
+
+  for (const epTask of targetEps) {
+    const failedIds = epTask.failedStoryboardIds || []
+    if (!failedIds.length) continue
+
+    logTaskProgress('BatchTask', 'retry-episode', {
+      episodeId: epTask.episodeId,
+      failedStoryboards: failedIds.length,
+    })
+
+    try {
+      // Retry image generation for failed storyboards
+      const sbs = db.select().from(schema.storyboards)
+        .where(eq(schema.storyboards.episodeId, epTask.episodeId))
+        .all()
+        .filter(sb => failedIds.includes(sb.id) && !sb.deletedAt)
+
+      for (const sb of sbs) {
+        if (!sb.firstFrameImage && !sb.composedImage) {
+          // Need image first
+          const [ep] = db.select().from(schema.episodes).where(eq(schema.episodes.id, epTask.episodeId)).all()
+          const configId = ep?.imageConfigId || null
+          const imgPrompt = sb.imagePrompt || sb.description || ''
+          if (imgPrompt) {
+            const imgId = await generateImage({
+              storyboardId: sb.id,
+              dramaId: ep?.dramaId,
+              prompt: imgPrompt,
+              frameType: 'first_frame',
+              configId: configId || undefined,
+            })
+            await waitForImageGeneration(imgId, 600_000)
+          }
+        }
+      }
+
+      // Retry video generation for failed storyboards
+      for (const sb of sbs) {
+        if (!sb.videoUrl && (sb.firstFrameImage || sb.composedImage)) {
+          const [ep] = db.select().from(schema.episodes).where(eq(schema.episodes.id, epTask.episodeId)).all()
+          const configId = ep?.videoConfigId || null
+          const imageUrl = sb.firstFrameImage || sb.composedImage || ''
+          const videoId = await generateVideo({
+            storyboardId: sb.id,
+            dramaId: ep?.dramaId,
+            prompt: sb.videoPrompt || sb.description || '',
+            firstFrameUrl: imageUrl || undefined,
+            referenceMode: imageUrl ? 'first_frame' : 'none',
+            duration: sb.duration || 5,
+            configId: configId || undefined,
+          })
+          await waitForVideoGeneration(videoId, 600_000)
+        }
+      }
+
+      // Retry compose for failed storyboards
+      for (const sb of sbs) {
+        if (sb.videoUrl && !sb.composedVideoUrl) {
+          await composeStoryboard(sb.id)
+        }
+      }
+
+      // Clear failed tracking on success
+      epTask.failedStoryboardIds = []
+      epTask.status = 'completed'
+      epTask.step = 'retry_completed'
+      db.update(schema.episodes)
+        .set({ generationStatus: 'completed', updatedAt: now() })
+        .where(eq(schema.episodes.id, epTask.episodeId))
+        .run()
+
+      logTaskSuccess('BatchTask', 'retry-episode-success', { episodeId: epTask.episodeId })
+    } catch (err: any) {
+      logTaskError('BatchTask', 'retry-episode-failed', {
+        episodeId: epTask.episodeId,
+        error: err.message,
+      })
+      // Keep existing failed storyboard IDs for next retry
+    }
+  }
+
+  return success(c, {
+    message: 'Retry initiated for failed storyboards',
+    task_id: taskId,
+  })
+})
+
 async function processBatchTask(
   taskId: string,
   episodeIds: number[],
@@ -211,15 +317,18 @@ async function processBatchTask(
 
       // Step 5: Compose storyboards (TTS + merge with video)
       epTask.step = 'compose_shots'
-      await composeStoryboardsForEpisode(episodeId)
+      await composeStoryboardsForEpisode(episodeId, epTask)
 
       // Step 6: Merge episode video
       epTask.step = 'merge_episode'
       const [epRecord] = db.select().from(schema.episodes).where(eq(schema.episodes.id, episodeId)).all()
+      const [dramaRecord] = db.select().from(schema.dramas).where(eq(schema.dramas.id, bt.dramaId)).all()
+      const dramaStyle = dramaRecord?.style === 'anime' ? 'anime' : 'real'
       await mergeEpisodeVideosForEpisode(episodeId, bt.dramaId, {
         bgmPath: epRecord?.bgmPath || options.bgm_path || null,
         introPath: null,
         outroPath: null,
+        style: dramaStyle,
       })
 
       // Step 7: Apply BGM if provided
@@ -420,7 +529,7 @@ async function waitForVideoGeneration(videoId: number, timeoutMs: number): Promi
   throw new Error('Video generation timeout')
 }
 
-async function composeStoryboardsForEpisode(episodeId: number) {
+async function composeStoryboardsForEpisode(episodeId: number, episodeTaskRef?: { failedStoryboardIds?: number[] }) {
   const sbs = db.select().from(schema.storyboards)
     .where(eq(schema.storyboards.episodeId, episodeId))
     .all()
@@ -431,6 +540,11 @@ async function composeStoryboardsForEpisode(episodeId: number) {
       await composeStoryboard(sb.id)
     } catch (err: any) {
       logTaskError('BatchTask', 'compose-storyboard', { storyboardId: sb.id, error: err.message })
+      // Track failed storyboard
+      if (episodeTaskRef) {
+        episodeTaskRef.failedStoryboardIds = episodeTaskRef.failedStoryboardIds || []
+        episodeTaskRef.failedStoryboardIds.push(sb.id)
+      }
       throw err
     }
   }
@@ -439,7 +553,7 @@ async function composeStoryboardsForEpisode(episodeId: number) {
 async function mergeEpisodeVideosForEpisode(
   episodeId: number,
   dramaId: number,
-  options?: { bgmPath?: string | null; introPath?: string | null; outroPath?: string | null }
+  options?: { bgmPath?: string | null; introPath?: string | null; outroPath?: string | null; style?: 'anime' | 'real' }
 ) {
   try {
     await mergeEpisodeVideos(episodeId, dramaId, options)

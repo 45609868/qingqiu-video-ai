@@ -22,18 +22,24 @@ function cleanText(value: string) {
 
 function inferEmotion(text: string, context = '') {
   const raw = `${context} ${text}`
-  if (/怒吼|怒喝|厉声|吼|骂|滚出去|出来|老子|恼羞|暴怒/.test(raw)) return 'angry'
-  if (/呼救|饶了|救命|害怕|惊恐|惊慌|慌乱|颤|别|不要|恐惧/.test(raw)) return 'fearful'
-  if (/惊|突然|什么|怎么|竟然|不可能|吓/.test(raw)) return 'surprised'
-  if (/哭|哽咽|难过|失落|绝望|叹/.test(raw)) return 'sad'
-  if (/低声|自语|压低|小声|喃喃/.test(raw)) return 'neutral'
+  if (/怒吼|怒喝|厉声|吼|骂|滚出去|出来|老子|恼羞|暴怒|发怒|生气|砸|过分/.test(raw)) return 'angry'
+  if (/呼救|饶了|救命|害怕|惊恐|惊慌|慌乱|颤|别|不要|恐惧|怕|鬼|吓/.test(raw)) return 'fearful'
+  if (/惊|突然|什么|怎么|竟然|不可能|吓|惊讶|吃惊|震惊/.test(raw)) return 'surprised'
+  if (/哭|哽咽|难过|失落|绝望|叹|伤心|痛/.test(raw)) return 'sad'
+  if (/笑|开心|好棒|太好了|高兴|兴奋|欢喜/.test(raw)) return 'happy'
+  if (/低声|自语|压低|小声|喃喃|沉默/.test(raw)) return 'neutral'
   return 'neutral'
 }
 
 function inferSpeed(text: string, emotion: string) {
-  if (emotion === 'fearful' || emotion === 'angry' || emotion === 'surprised') return 1.08
-  if (/低声|自语|沉默|叹/.test(text)) return 0.92
-  return 1
+  switch (emotion) {
+    case 'angry':     return 1.05  // 稍快，情绪激动
+    case 'fearful':   return 0.92  // 稍慢，压抑
+    case 'sad':       return 0.88  // 更慢，压抑
+    case 'surprised': return 1.08  // 稍快，惊讶
+    case 'happy':     return 1.1  // 轻快
+    default:          return 1.0
+  }
 }
 
 function normalizeSpeaker(raw: string, characterNames: string[]) {

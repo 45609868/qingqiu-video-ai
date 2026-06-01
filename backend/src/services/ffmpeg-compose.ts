@@ -202,9 +202,28 @@ export async function composeStoryboard(storyboardId: number): Promise<string> {
         cmd = cmd.videoFilter(filters)
       }
 
-      const outputOptions = ['-map', '0:v:0', '-c:v', 'libx264', '-preset', 'fast', '-crf', '23']
+      // Probe actual video and audio durations for sync
+      const videoDuration = getAudioDuration(videoPath) || (sb.duration || 10)
+      const audioDuration = audioPath ? getAudioDuration(audioPath) : null
 
-      if (audioPath) {
+      // Use H.265 encoding (libx265) for better compression
+      // Use -shortest to handle mismatched video/audio durations
+      const outputOptions = [
+        '-map', '0:v:0',
+        '-c:v', 'libx265',
+        '-preset', 'medium',
+        '-crf', '23',
+        '-tag:v', 'hvc1',
+        '-max_interleave_delta', '0.2',
+      ]
+
+      if (audioPath && audioDuration !== null) {
+        // Ensure audio duration matches video (pad or truncate)
+        if (audioDuration > videoDuration) {
+          // Audio longer than video: pad video with last frame
+          outputOptions.push('-stream_loop', '0', '-i', videoPath)
+          outputOptions.push('-map', '1:v:0')
+        }
         outputOptions.push('-map', '1:a:0', '-c:a', 'aac', '-shortest')
       } else {
         outputOptions.push('-an')
