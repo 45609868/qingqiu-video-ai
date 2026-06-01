@@ -32,9 +32,15 @@
         </svg>
         添加集
       </button>
+      <button class="btn btn-secondary" @click="openOneClick" v-if="!batchStatus || batchStatus.status !== 'running'">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+          <polygon points="5 3 19 12 5 21 5 3"/>
+        </svg>
+        一键生成
+      </button>
     </div>
 
-    <!-- Episode List -->
+    <!-- Section Label -->
     <div class="section-label">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
         <rect x="2" y="2" width="20" height="20" rx="2.5"/>
@@ -44,6 +50,38 @@
         <line x1="16" y1="8" x2="16" y2="16"/>
       </svg>
       剧集列表
+    </div>
+
+    <!-- Batch Progress Bar -->
+    <div v-if="batchStatus && batchStatus.status === 'running'" class="batch-progress-card">
+      <div class="batch-progress-header">
+        <div class="batch-progress-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/>
+            <line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/>
+            <line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/>
+          </svg>
+          批量生成中
+        </div>
+        <div class="batch-progress-stats">
+          <span class="batch-stat completed">{{ batchStatus.completed }}</span>
+          <span class="batch-sep">/</span>
+          <span class="batch-stat total">{{ batchStatus.total }}</span>
+          <span class="batch-failed" v-if="batchStatus.failed > 0"> · {{ batchStatus.failed }} 失败</span>
+        </div>
+      </div>
+      <div class="batch-progress-bar">
+        <div class="batch-progress-fill" :style="{ width: (batchStatus.total ? (batchStatus.completed / batchStatus.total * 100) : 0) + '%' }"></div>
+      </div>
+      <div class="batch-episodes-grid">
+        <div
+          v-for="ep in batchStatus.episodes"
+          :key="ep.episodeId"
+          :class="['batch-ep-chip', `status-${ep.status}`]"
+        >
+          E{{ episodeNumberById(ep.episodeId) }}
+        </div>
+      </div>
     </div>
 
     <div class="ep-grid">
@@ -58,8 +96,8 @@
         <div class="ep-body">
           <span class="ep-title">{{ ep.title }}</span>
           <div class="ep-status">
-            <span :class="['status-dot', hasScript(ep) ? 'dot-ready' : 'dot-pending']"></span>
-            <span class="status-text">{{ hasScript(ep) ? '已完成剧本' : '待编写' }}</span>
+            <span :class="['status-dot', epDotClass(ep)]"></span>
+            <span class="status-text">{{ epStatusText(ep) }}</span>
             <span v-if="ep.duration" class="ep-duration">{{ ep.duration }}s</span>
           </div>
         </div>
@@ -115,7 +153,7 @@
             <label class="field">
               <span class="field-label">标题</span>
               <input v-model="newEpisodeTitle" class="input" placeholder="默认按集数自动命名" />
-              <span class="field-hint">留空时会自动按集数命名，例如“第 3 集”。</span>
+              <span class="field-hint">留空时会自动按集数命名，例如"第 3 集"。</span>
             </label>
           </div>
 
@@ -151,11 +189,66 @@
         </div>
       </div>
     </div>
+
+    <!-- One-Click Generate Dialog -->
+    <div v-if="oneClickDialog" class="dialog-mask" @click.self="oneClickDialog = false">
+      <div class="card dialog">
+        <div class="dialog-head">
+          <div class="dialog-head-copy">
+            <div class="dialog-kicker">One-Click Generate</div>
+            <div class="dialog-title-row">
+              <div class="dialog-title">一键端到端生成</div>
+              <span class="dialog-badge dialog-badge-accent">全自动</span>
+            </div>
+            <div class="dialog-sub">粘贴完整小说内容（用 === 分隔章节），系统自动创建集数、生成剧本、分镜、图片、视频、TTS、合成整集。全程无需手动操作。</div>
+          </div>
+          <button class="back-btn" @click="oneClickDialog = false">取消</button>
+        </div>
+        <div class="dialog-body">
+          <div class="dialog-section">
+            <div class="dialog-section-head">
+              <span class="dialog-section-title">小说内容</span>
+              <span class="dialog-section-copy">使用 === 分隔章节，例如：<code style="font-size:11px;background:var(--bg-2);padding:1px 4px;border-radius:4px">第一章  xxx\n=== \n第二章  yyy</code></span>
+            </div>
+            <textarea
+              v-model="novelContent"
+              class="input"
+              style="min-height: 200px; resize: vertical; font-family: inherit"
+              placeholder="粘贴小说内容，用 === 分隔每章..."
+            ></textarea>
+            <div class="field-hint" style="margin-top: 4px">共 {{ chapterCount }} 章 | {{ novelContent.length }} 字</div>
+          </div>
+          <div class="dialog-section">
+            <div class="dialog-section-head">
+              <span class="dialog-section-title">BGM 配乐（可选）</span>
+              <span class="dialog-section-copy">选择背景音乐，会以 25% 音量混入最终视频</span>
+            </div>
+            <div class="config-grid" style="grid-template-columns: repeat(3, 1fr)">
+              <button
+                v-for="bgm in availableBgms"
+                :key="bgm.value"
+                :class="['config-card', 'bgm-card', selectedBgm === bgm.value ? 'bgm-selected' : '']"
+                @click="selectedBgm = selectedBgm === bgm.value ? null : bgm.value"
+              >
+                <span class="config-card-kicker">BGM</span>
+                <span class="field-label">{{ bgm.label }}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="dialog-foot">
+          <div class="dialog-foot-copy">将创建 {{ chapterCount }} 集并自动开始视频生成，可关闭页面稍后回来查看进度。</div>
+          <button class="btn btn-primary" :disabled="startingOneClick || !canStartOneClick" @click="startOneClick">
+            {{ startingOneClick ? '启动中...' : '开始一键生成' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { toast } from 'vue-sonner'
 import { aiConfigAPI, dramaAPI, episodeAPI } from '~/composables/useApi'
 
@@ -172,7 +265,150 @@ const newEpisodeImageConfigId = ref(null)
 const newEpisodeVideoConfigId = ref(null)
 const newEpisodeAudioConfigId = ref(null)
 
+// One-click generation
+const oneClickDialog = ref(false)
+const startingOneClick = ref(false)
+const novelContent = ref('')
+const selectedBgm = ref(null)
+const batchStatus = ref(null)
+const batchPollInterval = ref(null)
+
+const availableBgms = [
+  { label: '玄幻仙侠', value: 'anime_xuanmei' },
+  { label: '古风柔情', value: 'real_gufeng' },
+  { label: '燃向战斗', value: 'action_燃' },
+  { label: '悬疑惊悚', value: 'thriller' },
+  { label: '现代都市', value: 'modern' },
+]
+
+const chapterCount = computed(() => {
+  const content = novelContent.value
+  if (!content) return 0
+  return content.split(/===+/).filter(s => s.trim()).length
+})
+
+const canStartOneClick = computed(() =>
+  !!novelContent.value.trim() && chapterCount.value > 0
+)
+
+function episodeNumberById(episodeId) {
+  const ep = drama.value?.episodes?.find(e => e.id === episodeId)
+  if (!ep) return '??'
+  const num = ep.episode_number || ep.episodeNumber
+  return String(num).padStart(2, '0')
+}
+
+function openOneClick() {
+  novelContent.value = ''
+  selectedBgm.value = null
+  oneClickDialog.value = true
+}
+
+async function startOneClick() {
+  if (!canStartOneClick.value) return
+  try {
+    startingOneClick.value = true
+    const res = await fetch(`/api/v1/dramas/${dramaId}/one-click-generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        novel_content: novelContent.value,
+        bgm_path: selectedBgm.value ? `static/bgm/${selectedBgm.value}.mp3` : null,
+      }),
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.message || '启动失败')
+    toast.success('已开始一键生成')
+    oneClickDialog.value = false
+    startBatchPoll(data.data?.task_id || data.data?.batch?.id)
+  } catch (e) {
+    toast.error(e.message)
+  } finally {
+    startingOneClick.value = false
+  }
+}
+
+async function pollBatchStatus(taskId) {
+  if (!taskId) return
+  try {
+    const res = await fetch(`/api/v1/dramas/${dramaId}/batch-generate/${taskId}`)
+    const data = await res.json()
+    if (data.data) {
+      batchStatus.value = {
+        status: data.data.status,
+        total: data.data.total,
+        completed: data.data.completed,
+        failed: data.data.failed,
+        episodes: data.data.episodes,
+      }
+      if (data.data.status === 'completed' || data.data.status === 'failed') {
+        stopBatchPoll()
+        if (data.data.status === 'completed') {
+          toast.success(`批量生成完成：${data.data.completed} 集成功`)
+          load()
+        } else {
+          toast.error(`批量生成结束：${data.data.failed} 集失败`)
+        }
+      }
+    }
+  } catch (e) {
+    console.error('Poll error:', e)
+  }
+}
+
+function startBatchPoll(taskId) {
+  stopBatchPoll()
+  pollBatchStatus(taskId)
+  batchPollInterval.value = setInterval(() => pollBatchStatus(taskId), 8000)
+}
+
+function stopBatchPoll() {
+  if (batchPollInterval.value) {
+    clearInterval(batchPollInterval.value)
+    batchPollInterval.value = null
+  }
+}
+
+onMounted(() => {
+  load()
+  loadConfigs()
+  // Poll batch status if any episode is running
+  checkRunningBatch()
+})
+
+onUnmounted(() => {
+  stopBatchPoll()
+})
+
+async function checkRunningBatch() {
+  // Check if there's an active batch task for this drama
+  try {
+    const res = await fetch(`/api/v1/dramas/${dramaId}/one-click-generate`)
+    const data = await res.json()
+    if (data.data?.batch?.status === 'running') {
+      batchStatus.value = data.data.batch
+      startBatchPoll(data.data.task_id)
+    }
+  } catch (e) {}
+}
+
 function hasScript(ep) { return !!(ep.script_content || ep.scriptContent) }
+
+function epDotClass(ep) {
+  if (ep.video_url || ep.videoUrl) return 'dot-ready'
+  if (ep.generation_status === 'running') return 'dot-running'
+  if (ep.generation_status === 'failed') return 'dot-error'
+  if (hasScript(ep)) return 'dot-script'
+  return 'dot-pending'
+}
+
+function epStatusText(ep) {
+  if (ep.video_url || ep.videoUrl) return '已完成'
+  if (ep.generation_status === 'running') return '生成中'
+  if (ep.generation_status === 'failed') return '生成失败'
+  if (hasScript(ep)) return '待生成'
+  return '待编写'
+}
 
 function episodePath(ep) {
   const number = ep.episode_number || ep.episodeNumber
@@ -362,6 +598,14 @@ onMounted(() => { load(); loadConfigs() })
 }
 .dot-ready { background: var(--success); }
 .dot-pending { background: var(--text-3); }
+.dot-running { background: var(--accent); animation: pulse 1.5s infinite; }
+.dot-error { background: var(--error); }
+.dot-script { background: #f59e0b; }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
 .status-text { font-size: 11px; color: var(--text-3); }
 .ep-duration { font-size: 11px; color: var(--text-3); font-family: var(--font-mono); margin-left: 4px; }
 
@@ -517,6 +761,84 @@ onMounted(() => { load(); loadConfigs() })
   font-size: 12px;
   line-height: 1.6;
   color: var(--text-3);
+}
+
+/* Batch Progress */
+.batch-progress-card {
+  max-width: 760px;
+  margin-bottom: 16px;
+  padding: 16px 18px;
+  border-radius: 22px;
+  background: linear-gradient(135deg, rgba(76,125,255,0.08), rgba(122,167,255,0.06));
+  border: 1px solid rgba(76,125,255,0.15);
+}
+.batch-progress-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.batch-progress-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent-text);
+}
+.batch-progress-stats {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 13px;
+}
+.batch-stat.completed { font-weight: 700; color: var(--success); font-family: var(--font-mono); }
+.batch-stat.total { color: var(--text-2); font-family: var(--font-mono); }
+.batch-sep { color: var(--text-3); margin: 0 2px; }
+.batch-failed { color: var(--error); font-size: 12px; }
+.batch-progress-bar {
+  height: 6px;
+  border-radius: 99px;
+  background: rgba(76,125,255,0.12);
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+.batch-progress-fill {
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--accent), #5a9fff);
+  transition: width 0.4s ease;
+}
+.batch-episodes-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.batch-ep-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 24px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+}
+.batch-ep-chip.status-pending { background: rgba(255,255,255,0.4); color: var(--text-2); }
+.batch-ep-chip.status-running { background: rgba(76,125,255,0.2); color: var(--accent-text); }
+.batch-ep-chip.status-completed { background: rgba(34,197,94,0.15); color: var(--success); }
+.batch-ep-chip.status-failed { background: rgba(239,68,68,0.15); color: var(--error); }
+
+/* BGM card */
+.bgm-card { cursor: pointer; text-align: left; }
+.bgm-card.bgm-selected {
+  border-color: var(--accent);
+  background: linear-gradient(180deg, rgba(76,125,255,0.12), rgba(76,125,255,0.06));
+}
+.dialog-badge-accent {
+  background: rgba(34,197,94,0.12);
+  color: var(--success);
 }
 .field { display: flex; flex-direction: column; gap: 6px; }
 .field-label { font-size: 12px; font-weight: 600; color: var(--text-1); }

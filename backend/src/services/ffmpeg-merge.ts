@@ -23,8 +23,15 @@ function toAbsPath(relativePath: string): string {
 
 /**
  * 拼接一集的所有合成镜头视频
+ * @param episodeId - Episode ID
+ * @param dramaId - Drama ID
+ * @param options - Optional: bgmPath, introPath, outroPath
  */
-export async function mergeEpisodeVideos(episodeId: number, dramaId: number): Promise<number> {
+export async function mergeEpisodeVideos(
+  episodeId: number,
+  dramaId: number,
+  options?: { bgmPath?: string | null; introPath?: string | null; outroPath?: string | null }
+): Promise<number> {
   const storyboards = db.select().from(schema.storyboards)
     .where(eq(schema.storyboards.episodeId, episodeId))
     .orderBy(schema.storyboards.storyboardNumber)
@@ -57,7 +64,7 @@ export async function mergeEpisodeVideos(episodeId: number, dramaId: number): Pr
   const mergeId = Number(res.lastInsertRowid)
 
   // 异步执行
-  doMerge(mergeId, episodeId, videos).catch(err => {
+  doMerge(mergeId, episodeId, videos, options).catch(err => {
     logTaskError('MergeTask', 'episode-merge', { mergeId, episodeId, error: err.message })
     console.error(`[Merge] Failed:`, err)
     db.update(schema.videoMerges)
@@ -68,14 +75,41 @@ export async function mergeEpisodeVideos(episodeId: number, dramaId: number): Pr
   return mergeId
 }
 
-async function doMerge(mergeId: number, episodeId: number, videos: string[]) {
+async function doMerge(
+  mergeId: number,
+  episodeId: number,
+  videos: string[],
+  options?: { bgmPath?: string | null; introPath?: string | null; outroPath?: string | null }
+) {
+  // 构建完整视频列表：intro + content + outro
+  const allVideos: string[] = []
+
+  // 片头
+  if (options?.introPath) {
+    const introAbs = toAbsPath(options.introPath)
+    if (fs.existsSync(introAbs)) {
+      allVideos.push(introAbs)
+    }
+  }
+
+  // 正文
+  allVideos.push(...videos.map(v => toAbsPath(v)))
+
+  // 片尾
+  if (options?.outroPath) {
+    const outroAbs = toAbsPath(options.outroPath)
+    if (fs.existsSync(outroAbs)) {
+      allVideos.push(outroAbs)
+    }
+  }
+
   // 生成 concat 列表文件
   const listDir = path.join(STORAGE_ROOT, 'temp')
   fs.mkdirSync(listDir, { recursive: true })
   const listPath = path.join(listDir, `${uuid()}.txt`)
 
-  const listContent = videos
-    .map(v => `file '${toAbsPath(v)}'`)
+  const listContent = allVideos
+    .map(v => `file '${v}'`)
     .join('\n')
   fs.writeFileSync(listPath, listContent, 'utf-8')
 
@@ -86,19 +120,52 @@ async function doMerge(mergeId: number, episodeId: number, videos: string[]) {
   const outputPath = path.join(outputDir, outputFilename)
 
   await new Promise<void>((resolve, reject) => {
-    ffmpeg()
+    let cmd = ffmpeg()
       .input(listPath)
       .inputOptions(['-f', 'concat', '-safe', '0'])
-      .outputOptions([
-        '-fflags', '+genpts',
-        '-c:v', 'libx264',
-        '-preset', 'medium',
-        '-crf', '23',
-        '-c:a', 'aac',
-        '-ar', '48000',
-        '-b:a', '192k',
-        '-movflags', '+faststart',
-      ])
+
+    // BGM mixing: if bgm provided, loop it to cover full episode duration
+    if (options?.bgmPath) {
+      const bgmAbs = toAbsPath(options.bgmPath)
+      if (fs.existsSync(bgmAbs)) {
+        cmd = cmd
+          .input(bgmAbs)
+          .inputOptions(['-stream_loop', '-1']) // loop BGM to match episode length
+      }
+    }
+
+    const outputOptions: string[] = [
+      '-fflags', '+genpts',
+      '-c:v', 'libx264',
+      '-preset', 'medium',
+      '-crf', '23',
+      '-c:a', 'aac',
+      '-ar', '48000',
+      '-b:a', '192k',
+      '-movflags', '+faststart',
+    ]
+
+    if (options?.bgmPath) {
+      const bgmAbs = toAbsPath(options.bgmPath)
+      if (fs.existsSync(bgmAbs)) {
+        // [0:a:0] = concat audio, [1:a:0] = BGM, mix with BGM at 0.25 volume
+        outputOptions.push(
+          '-filter_complex', '[0:a:0][1:a:0]amix=inputs=2:duration=first:dropout_transition=2:weights=1 0.25[outa]',
+          '-map', '0:v:0',
+          '-map', '[outa]',
+          '-c:a', 'aac',
+          '-b:a', '192k',
+          '-shortest',
+        )
+      } else {
+        outputOptions.push('-an')
+      }
+    } else {
+      // No BGM: keep original audio
+      outputOptions.push('-map', '0:a:0')
+    }
+
+    cmd.outputOptions(outputOptions)
       .output(outputPath)
       .on('end', () => resolve())
       .on('error', (err) => reject(err))
@@ -123,7 +190,7 @@ async function doMerge(mergeId: number, episodeId: number, videos: string[]) {
     .set({ videoUrl: mergedRelative, updatedAt: now() })
     .where(eq(schema.episodes.id, episodeId)).run()
 
-  logTaskSuccess('MergeTask', 'episode-merge', { mergeId, episodeId, output: mergedRelative, duration, clips: videos.length })
+  logTaskSuccess('MergeTask', 'episode-merge', { mergeId, episodeId, output: mergedRelative, duration, clips: allVideos.length })
 }
 
 function getVideoDuration(filePath: string): Promise<number> {

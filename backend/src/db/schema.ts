@@ -31,11 +31,13 @@ export const episodes = sqliteTable('episodes', {
   description: text('description'),
   duration: integer('duration').default(0),
   status: text('status').default('draft'),
+  generationStatus: text('generation_status').default('pending'), // pending/running/completed/failed
   videoUrl: text('video_url'),
   thumbnail: text('thumbnail'),
   imageConfigId: integer('image_config_id'),
   videoConfigId: integer('video_config_id'),
   audioConfigId: integer('audio_config_id'),
+  bgmPath: text('bgm_path'), // path to BGM file for this episode
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
   deletedAt: text('deleted_at'),

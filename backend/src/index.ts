@@ -34,6 +34,9 @@ import webhooks from './routes/webhooks.js'
 import aiVoices from './routes/aiVoices.js'
 import agentPipeline from './routes/agentPipeline.js'
 import dashboard from './routes/dashboard.js'
+import novelImport from './routes/novelImport.js'
+import batchGenerate from './routes/batchGenerate.js'
+import oneClickGenerate from './routes/oneClickGenerate.js'
 import { requestLogger, errorHandler } from './middleware/logger.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -73,6 +76,9 @@ api.route('/grid', grid)
 api.route('/skills', skills)
 api.route('/ai-voices', aiVoices)
 api.route('/dashboard', dashboard)
+api.route('/dramas', novelImport)
+api.route('/dramas', batchGenerate)
+api.route('/dramas', oneClickGenerate)
 
 app.route('/api/v1', api)
 
