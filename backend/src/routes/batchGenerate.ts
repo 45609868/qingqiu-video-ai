@@ -127,7 +127,7 @@ app.post('/:id/batch-generate', async (c) => {
 })
 
 // GET /dramas/:id/batch-generate/:taskId — Poll batch task progress
-app.get('/:taskId', async (c) => {
+app.get('/:id/batch-generate/:taskId', async (c) => {
   const taskId = c.req.param('taskId')
   const task = batchTasks.get(taskId)
   if (!task) return notFound(c, 'Batch task not found')
@@ -155,7 +155,7 @@ app.get('/:taskId', async (c) => {
 })
 
 // DELETE /dramas/:id/batch-generate/:taskId — Cancel batch task
-app.delete('/:taskId', async (c) => {
+app.delete('/:id/batch-generate/:taskId', async (c) => {
   const taskId = c.req.param('taskId')
   const task = batchTasks.get(taskId)
   if (!task) return notFound(c, 'Batch task not found')
@@ -176,7 +176,7 @@ app.delete('/:taskId', async (c) => {
 })
 
 // POST /dramas/:id/batch-generate/:taskId/retry — Retry only failed storyboards
-app.post('/:taskId/retry', async (c) => {
+app.post('/:id/batch-generate/:taskId/retry', async (c) => {
   const taskId = c.req.param('taskId')
   const body = await c.req.json()
   const { episode_id, storyboard_ids } = body
