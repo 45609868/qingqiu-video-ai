@@ -1,31 +1,5 @@
 -- Migration: Phase 1.1 - 9:16 mobile-first + BGM + cover + subtitle style
 
--- 1. dramas: 9:16 + cover
-ALTER TABLE dramas ADD COLUMN aspect_ratio TEXT DEFAULT '9:16';
-ALTER TABLE dramas ADD COLUMN cover_prompt TEXT;
-ALTER TABLE dramas ADD COLUMN cover_status TEXT DEFAULT 'pending';
-
--- 2. episodes: 9:16 + subtitle style
-ALTER TABLE episodes ADD COLUMN aspect_ratio TEXT DEFAULT '9:16';
-ALTER TABLE episodes ADD COLUMN subtitle_style TEXT;
-ALTER TABLE episodes ADD COLUMN cover_url TEXT;
-ALTER TABLE episodes ADD COLUMN total_duration REAL DEFAULT 0;
-ALTER TABLE episodes ADD COLUMN storyboard_count INTEGER DEFAULT 0;
-
--- 3. image_generations: 9:16 default
-ALTER TABLE image_generations ADD COLUMN aspect_ratio TEXT DEFAULT '9:16';
-
--- 4. storyboards: 9:16 + hook/retention metadata
-ALTER TABLE storyboards ADD COLUMN aspect_ratio TEXT DEFAULT '9:16';
-ALTER TABLE storyboards ADD COLUMN hook_score INTEGER;
-ALTER TABLE storyboards ADD COLUMN retention_score INTEGER;
-ALTER TABLE storyboards ADD COLUMN dialogue_text TEXT;
-
--- 5. characters: seed tracking
-ALTER TABLE characters ADD COLUMN last_used_seed INTEGER;
-ALTER TABLE characters ADD COLUMN consistency_seed INTEGER;
-
--- 6. new table: bgm_library
 CREATE TABLE IF NOT EXISTS bgm_library (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   drama_id INTEGER,
