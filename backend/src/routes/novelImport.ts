@@ -11,7 +11,7 @@ import { toSnakeCase } from '../utils/transform.js'
 const app = new Hono()
 
 // POST /dramas/:id/import-novel
-app.post('/', async (c) => {
+app.post('/:id/import-novel', async (c) => {
   const dramaId = Number(c.req.param('id'))
   const body = await c.req.json()
   const { novel_content, episode_title_prefix = '第' } = body

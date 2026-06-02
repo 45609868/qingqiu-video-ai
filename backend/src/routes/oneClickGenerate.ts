@@ -25,7 +25,7 @@ interface OneClickTask {
 const oneClickTasks = new Map<number, OneClickTask>()
 
 // POST /dramas/:id/one-click-generate
-app.post('/', async (c) => {
+app.post('/:id/one-click-generate', async (c) => {
   const dramaId = Number(c.req.param('id'))
   const body = await c.req.json()
   const { novel_content, episode_title_prefix = '第', bgm_path } = body
@@ -209,7 +209,7 @@ app.post('/', async (c) => {
 })
 
 // GET /dramas/:id/one-click-generate — Get one-click task status
-app.get('/', async (c) => {
+app.get('/:id/one-click-generate', async (c) => {
   const dramaId = Number(c.req.param('id'))
   const task = oneClickTasks.get(dramaId)
 

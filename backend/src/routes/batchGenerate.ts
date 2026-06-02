@@ -56,7 +56,7 @@ function getActiveConfigId(serviceType: string) {
 }
 
 // POST /dramas/:id/batch-generate
-app.post('/', async (c) => {
+app.post('/:id/batch-generate', async (c) => {
   const dramaId = Number(c.req.param('id'))
   const body = await c.req.json()
   const { skip_script_rewrite = false, bgm_path } = body
