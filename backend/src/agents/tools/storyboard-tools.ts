@@ -125,7 +125,7 @@ export function createStoryboardTools(episodeId: number, dramaId: number) {
           episode_number: ep.episodeNumber,
           description: ep.description || '',
         },
-        drama_style: drama?.style || 'realistic',
+        drama_style: drama?.style || 'anime',
         script,
         characters,
         scenes,

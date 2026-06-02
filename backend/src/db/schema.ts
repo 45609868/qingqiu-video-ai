@@ -9,7 +9,7 @@ export const dramas = sqliteTable('dramas', {
   title: text('title').notNull(),
   description: text('description'),
   genre: text('genre'),
-  style: text('style').default('realistic'),
+  style: text('style').default('anime'),
   totalEpisodes: integer('total_episodes').default(1),
   totalDuration: integer('total_duration').default(0),
   status: text('status').notNull().default('draft'),

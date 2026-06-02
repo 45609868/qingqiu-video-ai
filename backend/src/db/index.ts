@@ -21,7 +21,7 @@ sqlite.exec(`
     title TEXT NOT NULL,
     description TEXT,
     genre TEXT,
-    style TEXT DEFAULT 'realistic',
+    style TEXT DEFAULT 'anime',
     total_episodes INTEGER DEFAULT 1,
     total_duration INTEGER DEFAULT 0,
     status TEXT NOT NULL DEFAULT 'draft',

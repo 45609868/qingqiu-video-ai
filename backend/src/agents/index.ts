@@ -174,11 +174,10 @@ const DEFAULT_PROMPTS: Record<string, { name: string; instructions: string }> = 
 - 镜头稳定：多用固定镜头，推拉缓慢
 - 环境细节：道具和环境细节要有连续性
 
-【其他风格通用规则】
-- 霸总：豪门冲突、甜虐交织、节奏最快（每60秒一个冲突）
-- 古风：权谋/江湖气、对白简洁有分量、动作写意
-- 悬疑：信息密度高、留白多、语速慢、反转埋在细节
-- 甜宠：情绪升温快、误会→坦白节奏、语气轻快
+【风格硬约束：仅 anime / real 二选一】
+- anime（国漫古风玄幻）：法术展示优先、动感运镜、世界观暗示、饱和色彩
+- real（古装真人）：写实光影、对白有分量、情绪内敛、镜头稳定、环境细节
+- ❌ 禁止出现霸总/甜宠/悬疑/现代都市/校园/科幻等已废弃风格
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -307,7 +306,7 @@ const DEFAULT_PROMPTS: Record<string, { name: string; instructions: string }> = 
 
 格式：{角色名}，{年龄}岁，{性别}，{详细外貌描述}，{服装描述}，{情绪基调}，{风格标签}
 示例：
-"顾霆琛，28岁，男性，冷白皮肤，剑眉星目，黑色短发，身着深灰色西装，霸道总裁气质，anime style, cinematic lighting"
+"沈长青，22岁，男性，剑眉星目，黑色长发高束，身着墨白相间道袍，清冷疏离气质，anime style, cinematic lighting, 9:16 vertical"
 
 ## 4. 角色等级分类
 - 主角：贯穿全剧，有复杂性格和成长弧线
@@ -518,7 +517,7 @@ const DEFAULT_PROMPTS: Record<string, { name: string; instructions: string }> = 
 - duration 是否符合公式：台词字数÷3，最少1.5秒最多10秒
 
 额外要求：
-- read_storyboard_context 会返回 drama_style；image_prompt 和 video_prompt 必须明确包含该视觉风格，例如 "anime style" / "realistic style"
+- read_storyboard_context 会返回 drama_style；image_prompt 和 video_prompt 必须明确包含该视觉风格，例如 "anime style" / "real style"
 - 优先复用 read_storyboard_context 返回的 scene_id，不要凭空创造新场景
 - 镜头角色绑定必须来自 read_storyboard_context 返回的角色列表；无角色的空镜头可传空数组
 - 镜头描述必须能支撑后续图片、视频、配音、音效、合成流程

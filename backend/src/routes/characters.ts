@@ -11,26 +11,14 @@ const app = new Hono()
 function buildCharacterReferencePrompt(char: any, dramaStyle: string) {
   const identityPrompt = char.referencePrompt || `${char.name}, ${char.appearance || char.description || '人物立绘'}`
 
+  // 风格硬约束：仅 anime / real 二选一，其它值按 anime 处理
   const stylePrompt = (() => {
     switch (dramaStyle) {
-      case 'realistic':
-        return 'photorealistic, cinematic film photography, 35mm lens, lens flare, high contrast lighting, film grain'
+      case 'real':
+        return 'cinematic photorealistic, period-accurate Chinese costume live-action, studio key lighting, 35mm film, shallow depth of field, 8K skin detail, film grain, anamorphic lens, no anime, no cartoon, no illustration'
       case 'anime':
-        return 'anime style, cel-shaded, vibrant colors, clean lineart, anime character'
-      case 'ghibli':
-        return 'ghibli style, hand-painted watercolor aesthetic, soft diffuse lighting, whimsical, Studio Ghibli inspired'
-      case 'cinematic':
-        return 'cinematic style, dramatic lighting, film noir atmosphere, anamorphic lens, cinematic color grading'
-      case 'comic':
-        return 'comic book style, bold lineart, halftone dots, pop art colors, Marvel/DC comic illustration'
-      case 'watercolor':
-        return 'watercolor painting style, soft edges, paper texture, delicate brushstrokes, art studio aesthetic'
-      case 'guofeng-xuanhuan':
-        return 'Chinese xianxia fantasy style, ink wash painting aesthetic, Taoist robes, ancient Chinese mythology, mystical fog, ethereal energy, traditional Chinese color palette, Wuxia world, cel-shaded anime, dark fantasy atmosphere, dramatic high contrast lighting, ink painting with bold contrast, epic cinematic composition, intricate traditional clothing details'
-      case '3d-guoman':
-        return '3D Chinese animation style, detailed realistic 3D character model, Chinese comic aesthetics, vibrant colors, Chinese animated film quality, like 剑来/仙逆 look, motion capture quality rendering, dramatic high contrast lighting, epic fantasy atmosphere, intricate clothing and fur details, photorealistic textures, cinematic color grading'
       default:
-        return `${dramaStyle} style`
+        return 'Chinese xianxia anime style, donghua, ink-painting color palette, hongman line art, hand-painted texture, silk and satin fabric rendering, 3D-to-2D shading, magical aura glow, no photorealistic, no live-action'
     }
   })()
 
