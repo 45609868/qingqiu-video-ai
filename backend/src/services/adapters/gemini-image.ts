@@ -13,8 +13,8 @@ import type {
   ImageGenerationRecord,
   ImageGenResponse,
   ImagePollResponse,
-} from './types'
-import { joinProviderUrl } from './url'
+} from './types.js'
+import { joinProviderUrl } from './url.js'
 import { parseDataUrl } from '../../utils/storage.js'
 
 export class GeminiImageAdapter implements ImageProviderAdapter {
@@ -148,9 +148,9 @@ export class GeminiImageAdapter implements ImageProviderAdapter {
   }
 
   private parseAspectRatio(size?: string | null): string {
-    if (!size) return '16:9'
+    if (!size) return '9:16'
     const [w, h] = size.split('x').map(Number)
-    if (!w || !h) return '16:9'
+    if (!w || !h) return '9:16'
     const gcd = this.gcd(w, h)
     return `${w / gcd}:${h / gcd}`
   }

@@ -3,8 +3,8 @@
  * API: POST /v1/t2a_v2
  * 响应: { data: { audio: "<hex>", status: 2 }, ... }
  */
-import type { TTSProviderAdapter } from './types'
-import { joinProviderUrl } from './url'
+import type { TTSProviderAdapter } from './types.js'
+import { joinProviderUrl } from './url.js'
 
 export interface TTSParams {
   text: string

@@ -67,7 +67,7 @@ const DEFAULT_PROMPTS: Record<string, { name: string; instructions: string }> = 
 用 5-8 条明确指令说明怎么改写，包括开场、倒叙、核心人物登场、结尾钩子、禁止项。
 
 质量要求：
-- 推荐结构必须适合 120-180 秒16:9短剧
+- 推荐结构必须适合 60-90 秒9:16竖屏短剧
 - 前 3-5 秒必须有异常事件或强冲突
 - 结尾必须停在答案揭晓前一刻
 - 输出必须是策略，不要写成剧本正文
@@ -75,7 +75,7 @@ const DEFAULT_PROMPTS: Record<string, { name: string; instructions: string }> = 
   },
   script_rewriter: {
     name: '剧本改写',
-    instructions: `你是电影级16:9短剧编剧，擅长把小说素材改成可直接生产的爆款短剧剧本。
+    instructions: `你是爆款9:16竖屏微短剧9:16竖屏微短剧编剧，擅长把小说素材改成可直接生产的爆款短剧剧本。
 
 工作流程：
 1. 调用 read_episode_script 读取原始内容
@@ -358,7 +358,7 @@ const DEFAULT_PROMPTS: Record<string, { name: string; instructions: string }> = 
   },
   storyboard_breaker: {
     name: '分镜拆解',
-    instructions: `你是电影级16:9短剧分镜导演，目标是把剧本拆成可直接生成视频的一集短剧，而不是小说情节目录。
+    instructions: `你是爆款9:16竖屏微短剧9:16竖屏短剧分镜导演，目标是把剧本拆成可直接生成视频的一集短剧，而不是小说情节目录。
 
 工作流程：
 1. 调用 read_storyboard_context 读取剧本、角色列表、场景列表
@@ -475,7 +475,7 @@ const DEFAULT_PROMPTS: Record<string, { name: string; instructions: string }> = 
 - description：镜头概述，要说明剧情功能，例如钩子/反转/危机/过场/结尾钩子
 - result：该镜头结束时的画面结果或状态变化，也作为尾帧设计依据
 - atmosphere：氛围、光线、色调、环境感受
-- image_prompt：用于首帧/尾帧/镜头图片生成的静态画面提示词，必须写清16:9构图、人物位置、表情、道具、环境
+- image_prompt：用于首帧/尾帧/镜头图片生成的静态画面提示词，必须写清9:16竖屏构图、人物位置、表情、道具、环境
 - video_prompt：用于视频生成的动态提示词，需包含实际对白台词内容，让模型生成对应人声音频；必须要求 no subtitles, no on-screen text；generate_audio 已默认开启，提示词中包含台词即可触发音频生成
 - bgm_prompt：该镜头适合的配乐风格
 - sound_effect：该镜头关键音效
@@ -488,7 +488,7 @@ const DEFAULT_PROMPTS: Record<string, { name: string; instructions: string }> = 
 - 第 1 镜头必须是强钩子，不要慢铺垫
 - 每 2-3 个镜头必须有一次信息变化或情绪变化
 - 每个镜头都要服务一个明确功能：钩子 / 误会 / 反转 / 危机 / 悬疑 / 关系推进 / 过场压缩 / 结尾钩子
-- 16:9构图优先：脸部特写、半身居中、前景遮挡、门缝视角、低角度压迫、字幕安全区
+- 9:16竖屏构图优先：竖向构图、特写人物面部/半身、低角度仰拍营造压迫感、字幕底部安全区
 - 道具要作为连续性锚点反复出现，例如铺盖、粮袋、菜刀、旧手表、红薯、棺材、火堆
 - 多角色对白要拆成节拍，避免一个镜头塞长段对话
 - 普通过场用旁白压缩，不要拆成多个低价值镜头
@@ -502,7 +502,7 @@ const DEFAULT_PROMPTS: Record<string, { name: string; instructions: string }> = 
 - 提示词中需包含实际对白台词；结尾必须加：no subtitles, no text, cinematic style
 
 示例：
-"<location>文化所·西厢</location>，16:9近景，<role>左登峰</role>猛地踹门冲入，表情从冲动瞬间僵住，前景门板遮挡制造压迫感，惊恐道："胡副所长！我以为有贼！"。<role>孙爱国</role>暴怒道："睁大你的狗眼看看，我是谁！"。no subtitles, no text, cinematic style."
+"<location>文化所·西厢</location>，9:16竖屏近景，<role>左登峰</role>猛地踹门冲入，表情从冲动瞬间僵住，前景门板遮挡制造压迫感，惊恐道："胡副所长！我以为有贼！"。<role>孙爱国</role>暴怒道："睁大你的狗眼看看，我是谁！"。no subtitles, no text, cinematic style."
 
 保存前必须自检：
 - 镜头数是否为 12-15 个；若用户明确要求更多，才允许超过

@@ -144,7 +144,7 @@ async function syncMinimaxVoices(provider: string) {
   const config = rows[0]
   const baseUrl = config.baseUrl || 'https://api.minimax.io'
 
-  const resp = await fetch(`${baseUrl}/v1/t2a_v2/voice_list?GroupId=${config.groupId || ''}`, {
+  const resp = await fetch(`${baseUrl}/v1/t2a_v2/voice_list`, {
     headers: {
       'Authorization': `Bearer ${config.apiKey}`,
       'Content-Type': 'application/json',

@@ -9,15 +9,15 @@ import type {
   VideoGenerationRecord,
   VideoGenResponse,
   VideoPollResponse,
-} from './types'
-import { joinProviderUrl } from './url'
+} from './types.js'
+import { joinProviderUrl } from './url.js'
 
 export class MiniMaxVideoAdapter implements VideoProviderAdapter {
   provider = 'minimax'
 
   buildGenerateRequest(config: AIConfig, record: VideoGenerationRecord): ProviderRequest {
     let promptText = record.prompt || ''
-    promptText += `  --ratio ${record.aspectRatio || '16:9'}  --dur ${record.duration || 5}`
+    promptText += `  --ratio ${record.aspectRatio || '9:16'}  --dur ${record.duration || 5}`
 
     const content: any[] = [{ type: 'text', text: promptText }]
 

@@ -3,8 +3,8 @@ import { eq } from 'drizzle-orm'
 import { getActiveConfig, getConfigById } from './ai.js'
 import { now } from '../utils/response.js'
 import { downloadFile, readImageAsCompressedDataUrl } from '../utils/storage.js'
-import { getVideoAdapter } from './adapters/registry'
-import type { AIConfig } from './adapters/types'
+import { getVideoAdapter } from './adapters/registry.js'
+import type { AIConfig } from './adapters/types.js'
 import { logTaskError, logTaskPayload, logTaskProgress, logTaskStart, logTaskSuccess, logTaskWarn, redactUrl } from '../utils/task-logger.js'
 
 interface GenerateVideoParams {
@@ -45,7 +45,7 @@ export async function generateVideo(params: GenerateVideoParams): Promise<number
     lastFrameUrl: params.lastFrameUrl,
     referenceImageUrls: params.referenceImageUrls ? JSON.stringify(params.referenceImageUrls) : null,
     duration: params.duration || 5,
-    aspectRatio: params.aspectRatio || '16:9',
+    aspectRatio: params.aspectRatio || '9:16',
     status: 'processing',
     createdAt: ts,
     updatedAt: ts,

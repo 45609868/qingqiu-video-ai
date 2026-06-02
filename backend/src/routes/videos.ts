@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm'
 import { db, schema } from '../db/index.js'
 import { success, created, badRequest } from '../utils/response.js'
 import { generateVideo } from '../services/video-generation.js'
+import { injectCharacterReferences } from '../services/character-consistency.js'
 import { logTaskError, logTaskPayload, logTaskStart, logTaskSuccess } from '../utils/task-logger.js'
 
 const app = new Hono()
@@ -54,15 +55,8 @@ app.post('/', async (c) => {
     const dramaStyle = resolveDramaStyle(body)
     const prompt = appendStyle(body.prompt, dramaStyle)
 
-    logTaskStart('VideoAPI', 'generate', {
-      storyboardId: body.storyboard_id,
-      dramaId: body.drama_id,
-      referenceMode: body.reference_mode,
-      duration: body.duration,
-      dramaStyle,
-    })
-    logTaskPayload('VideoAPI', 'request body', { ...body, prompt })
-    const id = await generateVideo({
+    // 角色一致性：自动从分镜关联角色拉取 locked_image_url 当 reference
+    const baseParams = {
       storyboardId: body.storyboard_id,
       dramaId: body.drama_id,
       prompt,
@@ -75,7 +69,18 @@ app.post('/', async (c) => {
       duration: body.duration,
       aspectRatio: body.aspect_ratio,
       configId,
+    }
+    const injectedParams = injectCharacterReferences(baseParams, { force: !!body.storyboard_id && !body.image_url && !body.reference_image_urls })
+
+    logTaskStart('VideoAPI', 'generate', {
+      storyboardId: body.storyboard_id,
+      dramaId: body.drama_id,
+      referenceMode: body.reference_mode,
+      duration: body.duration,
+      dramaStyle,
     })
+    logTaskPayload('VideoAPI', 'request body', { ...body, prompt })
+    const id = await generateVideo(injectedParams)
 
     const [record] = db.select().from(schema.videoGenerations)
       .where(eq(schema.videoGenerations.id, id)).all()

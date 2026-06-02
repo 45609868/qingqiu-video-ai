@@ -1,12 +1,13 @@
 import Database from 'better-sqlite3'
 import { drizzle } from 'drizzle-orm/better-sqlite3'
 import * as schema from './schema.js'
+import * as additions from './schema_additions.js'
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const DB_PATH = process.env.DB_PATH || path.resolve(__dirname, '../../../data/huobao_drama.db')
+const DB_PATH = process.env.DB_PATH || path.resolve(__dirname, '../../../data/qingqiu_drama.db')
 
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true })
 
@@ -27,6 +28,9 @@ sqlite.exec(`
     thumbnail TEXT,
     tags TEXT,
     metadata TEXT,
+    aspect_ratio TEXT DEFAULT '9:16',
+    cover_prompt TEXT,
+    cover_status TEXT DEFAULT 'pending',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     deleted_at TEXT
@@ -42,6 +46,13 @@ sqlite.exec(`
     description TEXT,
     duration INTEGER DEFAULT 0,
     status TEXT DEFAULT 'draft',
+    generation_status TEXT DEFAULT 'pending',
+    bgm_path TEXT,
+    aspect_ratio TEXT DEFAULT '9:16',
+    subtitle_style TEXT,
+    cover_url TEXT,
+    total_duration REAL DEFAULT 0,
+    storyboard_count INTEGER DEFAULT 0,
     video_url TEXT,
     thumbnail TEXT,
     image_config_id INTEGER,
@@ -67,6 +78,8 @@ sqlite.exec(`
     reference_prompt TEXT,
     reference_images TEXT,
     seed_value TEXT,
+    last_used_seed INTEGER,
+    consistency_seed INTEGER,
     sort_order INTEGER,
     local_path TEXT,
     voice_sample_url TEXT,
@@ -124,6 +137,10 @@ sqlite.exec(`
     tts_audio_url TEXT,
     subtitle_url TEXT,
     composed_video_url TEXT,
+    aspect_ratio TEXT DEFAULT '9:16',
+    hook_score INTEGER,
+    retention_score INTEGER,
+    dialogue_text TEXT,
     status TEXT DEFAULT 'pending',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
@@ -248,6 +265,7 @@ sqlite.exec(`
     width INTEGER,
     height INTEGER,
     reference_images TEXT,
+    aspect_ratio TEXT DEFAULT '9:16',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     completed_at TEXT
@@ -348,6 +366,104 @@ sqlite.exec(`
     updated_at TEXT NOT NULL,
     deleted_at TEXT
   );
+
+  CREATE TABLE IF NOT EXISTS bgm_library (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    drama_id INTEGER,
+    name TEXT NOT NULL,
+    category TEXT,
+    mood TEXT,
+    file_path TEXT NOT NULL,
+    duration REAL,
+    is_builtin INTEGER DEFAULT 0,
+    is_active INTEGER DEFAULT 1,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    deleted_at TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_bgm_drama ON bgm_library(drama_id);
+  CREATE INDEX IF NOT EXISTS idx_bgm_mood ON bgm_library(mood);
+
+  CREATE TABLE IF NOT EXISTS cover_templates (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    genre TEXT,
+    style TEXT,
+    prompt TEXT,
+    negative_prompt TEXT,
+    reference_image_url TEXT,
+    is_active INTEGER DEFAULT 1,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS prompt_templates (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    category TEXT NOT NULL,
+    name TEXT NOT NULL,
+    template TEXT NOT NULL,
+    variables TEXT,
+    description TEXT,
+    is_active INTEGER DEFAULT 1,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_prompt_templates_category ON prompt_templates(category);
+
+  CREATE TABLE IF NOT EXISTS novel_imports (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    drama_id INTEGER,
+    source_type TEXT,
+    source_url TEXT,
+    source_title TEXT,
+    raw_content TEXT,
+    parsed_chapters TEXT,
+    status TEXT DEFAULT 'pending',
+    error_msg TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    completed_at TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    type TEXT NOT NULL,
+    status TEXT DEFAULT 'pending',
+    drama_id INTEGER,
+    episode_id INTEGER,
+    storyboard_id INTEGER,
+    payload TEXT,
+    result TEXT,
+    error_msg TEXT,
+    priority INTEGER DEFAULT 0,
+    retry_count INTEGER DEFAULT 0,
+    max_retries INTEGER DEFAULT 3,
+    started_at TEXT,
+    completed_at TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
+  CREATE INDEX IF NOT EXISTS idx_tasks_type ON tasks(type);
+  CREATE INDEX IF NOT EXISTS idx_tasks_drama ON tasks(drama_id);
+
+  CREATE TABLE IF NOT EXISTS one_click_tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    drama_id INTEGER,
+    source_type TEXT,
+    source_content TEXT,
+    target_episodes INTEGER,
+    current_step TEXT,
+    progress INTEGER DEFAULT 0,
+    status TEXT DEFAULT 'pending',
+    result TEXT,
+    error_msg TEXT,
+    cost_tokens INTEGER,
+    started_at TEXT,
+    completed_at TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
 `)
 
 function ensureColumn(table: string, column: string, definition: string) {
@@ -371,6 +487,23 @@ ensureColumn('scenes', 'locked_image_url', 'TEXT')
 ensureColumn('scenes', 'image_lock_status', 'TEXT')
 ensureColumn('scenes', 'reference_prompt', 'TEXT')
 
-export const db = drizzle(sqlite, { schema })
-export { schema }
+ensureColumn('dramas', 'aspect_ratio', "TEXT DEFAULT '9:16'")
+ensureColumn('dramas', 'cover_prompt', 'TEXT')
+ensureColumn('dramas', 'cover_status', "TEXT DEFAULT 'pending'")
+ensureColumn('episodes', 'aspect_ratio', "TEXT DEFAULT '9:16'")
+ensureColumn('episodes', 'subtitle_style', 'TEXT')
+ensureColumn('episodes', 'cover_url', 'TEXT')
+ensureColumn('episodes', 'total_duration', 'REAL DEFAULT 0')
+ensureColumn('episodes', 'storyboard_count', 'INTEGER DEFAULT 0')
+ensureColumn('characters', 'last_used_seed', 'INTEGER')
+ensureColumn('characters', 'consistency_seed', 'INTEGER')
+ensureColumn('storyboards', 'aspect_ratio', "TEXT DEFAULT '9:16'")
+ensureColumn('storyboards', 'hook_score', 'INTEGER')
+ensureColumn('storyboards', 'retention_score', 'INTEGER')
+ensureColumn('storyboards', 'dialogue_text', 'TEXT')
+ensureColumn('image_generations', 'aspect_ratio', "TEXT DEFAULT '9:16'")
+
+
+export const db = drizzle(sqlite, { schema: { ...schema, ...additions } })
+export { schema, additions }
 export type DB = typeof db

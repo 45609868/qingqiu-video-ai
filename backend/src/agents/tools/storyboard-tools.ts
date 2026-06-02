@@ -338,11 +338,11 @@ export function createStoryboardTools(episodeId: number, dramaId: number) {
       if (mode === 'multi_ref') {
         const sb = shots[0]
         const payload = {
-          grid_prompt: `${dramaStyle} style 高质量参考图，${sb.description}，专业摄影，4K分辨率，${rows}x${cols} 宫格统一风格参考图`,
+          grid_prompt: `${dramaStyle} style 高质量参考图，${sb.description}，专业摄影，4K分辨率，9:16竖屏，${rows}x${cols} 宫格统一风格参考图`,
           cell_prompts: shots.map(s => ({
             shot_number: s.shot_number,
             frame_type: 'reference',
-            prompt: `${dramaStyle} style 高质量参考图，${s.description}，专业摄影，4K分辨率，统一风格`,
+            prompt: `${dramaStyle} style 高质量参考图，${s.description}，专业摄影，4K分辨率，统一风格，9:16竖屏`,
           })),
         }
         logTaskSuccess('StoryboardTool', 'grid-prompt-complete', { episodeId, cells: payload.cell_prompts.length, mode })
@@ -355,16 +355,16 @@ export function createStoryboardTools(episodeId: number, dramaId: number) {
           cellPrompts.push({
             shot_number: s.shot_number,
             frame_type: 'first_frame',
-            prompt: `${dramaStyle} style 高质量首帧，${s.description}，${s.shot_type || ''}，专业摄影，${rows}x${cols} 宫格风格统一`,
+            prompt: `${dramaStyle} style 高质量首帧，${s.description}，${s.shot_type || ''}，专业摄影，9:16竖屏，${rows}x${cols} 宫格风格统一`,
           })
           cellPrompts.push({
             shot_number: s.shot_number,
             frame_type: 'last_frame',
-            prompt: `${dramaStyle} style 高质量尾帧，${s.description}，${s.shot_type || ''}，专业摄影，${rows}x${cols} 宫格风格统一`,
+            prompt: `${dramaStyle} style 高质量尾帧，${s.description}，${s.shot_type || ''}，专业摄影，9:16竖屏，${rows}x${cols} 宫格风格统一`,
           })
         }
         const payload = {
-          grid_prompt: `${shots.length}个镜头首尾帧拼图，${shots.map(s => s.description).join(' | ')}，${dramaStyle} style 画面，专业摄影，${rows}行${cols}列风格统一`,
+          grid_prompt: `${shots.length}个镜头首尾帧拼图，${shots.map(s => s.description).join(' | ')}，${dramaStyle} style 画面，专业摄影，9:16竖屏，${rows}行${cols}列风格统一`,
           cell_prompts: cellPrompts,
         }
         logTaskSuccess('StoryboardTool', 'grid-prompt-complete', { episodeId, cells: payload.cell_prompts.length, mode })
@@ -375,10 +375,10 @@ export function createStoryboardTools(episodeId: number, dramaId: number) {
       const cellPrompts = shots.slice(0, rows * cols).map(s => ({
         shot_number: s.shot_number,
         frame_type: 'first_frame',
-        prompt: `${dramaStyle} style 高质量首帧，${s.description}，${s.shot_type || ''}，专业摄影，${rows}x${cols} 宫格风格统一`,
+        prompt: `${dramaStyle} style 高质量首帧，${s.description}，${s.shot_type || ''}，专业摄影，9:16竖屏，${rows}x${cols} 宫格风格统一`,
       }))
       const payload = {
-        grid_prompt: `${shots.length}个镜头首帧拼图，${shots.map(s => s.description).join(' | ')}，${dramaStyle} style 画面，专业摄影，${rows}行${cols}列风格统一`,
+        grid_prompt: `${shots.length}个镜头首帧拼图，${shots.map(s => s.description).join(' | ')}，${dramaStyle} style 画面，专业摄影，9:16竖屏，${rows}行${cols}列风格统一`,
         cell_prompts: cellPrompts,
       }
       logTaskSuccess('StoryboardTool', 'grid-prompt-complete', { episodeId, cells: payload.cell_prompts.length, mode })

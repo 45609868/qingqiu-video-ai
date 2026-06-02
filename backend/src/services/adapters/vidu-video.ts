@@ -11,8 +11,8 @@ import type {
   VideoGenerationRecord,
   VideoGenResponse,
   VideoPollResponse,
-} from './types'
-import { joinProviderUrl } from './url'
+} from './types.js'
+import { joinProviderUrl } from './url.js'
 
 export class ViduVideoAdapter implements VideoProviderAdapter {
   provider = 'vidu'

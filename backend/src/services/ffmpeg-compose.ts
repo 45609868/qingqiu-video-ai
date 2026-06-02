@@ -107,9 +107,25 @@ export async function composeStoryboard(storyboardId: number): Promise<string> {
 
   const videoPath = toAbsPath(sb.videoUrl)
   let audioPath: string | null = null
+  let bgmPath: string | null = null
   let subtitlePath: string | null = null
   const [ep] = db.select().from(schema.episodes).where(eq(schema.episodes.id, sb.episodeId)).all()
+  // 解析字幕样式
+  let subtitleFontSize = 56
+  let subtitleMarginV = 120
+  let subtitleOutline = 4
+  if (ep?.subtitleStyle) {
+    try {
+      const ss = JSON.parse(ep.subtitleStyle)
+      if (typeof ss.fontSize === 'number') subtitleFontSize = ss.fontSize
+      if (typeof ss.marginV === 'number') subtitleMarginV = ss.marginV
+      if (typeof ss.outline === 'number') subtitleOutline = ss.outline
+    } catch {}
+  }
   const chars = ep ? db.select().from(schema.characters).where(eq(schema.characters.dramaId, ep.dramaId)).all() : []
+  if (ep?.bgmPath) {
+    bgmPath = toAbsPath(ep.bgmPath)
+  }
   const dialogueSegments = parseDialogueSegments(sb.dialogue, chars.map(char => char.name))
 
   // 1. 生成 TTS 音频（如果有对白）
@@ -181,15 +197,40 @@ export async function composeStoryboard(storyboardId: number): Promise<string> {
       if (audioPath) {
         cmd = cmd.input(audioPath)
       }
+      if (bgmPath) {
+        cmd = cmd.input(bgmPath)
+      }
 
       const filters: string[] = []
+
+      // 9:16 竖屏强制缩放 + 裁剪
+      filters.push('scale=1080:1920:force_original_aspect_ratio=increase')
+      filters.push('crop=1080:1920')
+
+      // BGM 混音: 背景音乐音量 0.15，TTS音量 1.0
+      const hasBgm = !!bgmPath
+      const hasTts = !!audioPath
+      if (hasBgm && hasTts) {
+        // [0:a] = 视频自带音轨, [1:a] = TTS, [2:a] = BGM
+        // BGM 需要 amix 之前先 loop 到视频长度
+        filters.push('[2:a]aloop=loop=-1:size=2e9,atrim=0:' + (sb.duration || 10) + ',volume=0.15[bgm]')
+        filters.push('[1:a]volume=1.0[tts]')
+        filters.push('[tts][bgm]amix=inputs=2:duration=first:dropout_transition=0[aout]')
+      } else if (hasBgm) {
+        filters.push('[1:a]aloop=loop=-1:size=2e9,atrim=0:' + (sb.duration || 10) + ',volume=0.15[aout]')
+      } else if (hasTts) {
+        filters.push('[1:a]volume=1.0[aout]')
+      } else {
+        filters.push('[0:a]volume=1.0[aout]')
+      }
 
       if (subtitlePath && supportsSubtitleFilter()) {
         const escapedPath = subtitlePath
           .replace(/\\/g, '/')
           .replace(/:/g, '\\:')
           .replace(/'/g, "\\'")
-        const forceStyle = 'FontSize=20\\,PrimaryColour=&H00FFFFFF\\,OutlineColour=&H00000000\\,Outline=2\\,Alignment=2\\,MarginV=80'
+        // 9:16 竖屏字幕：字体60，底部居中，Outline=4 黑边
+        const forceStyle = `FontSize=${subtitleFontSize}\\${','}PrimaryColour=&H00FFFFFF\\${','}OutlineColour=&H00000000\\${','}Outline=${subtitleOutline}\\${','}Alignment=2\\${','}MarginV=${subtitleMarginV}`
         filters.push(`subtitles=filename='${escapedPath}':force_style='${forceStyle}'`)
       } else if (subtitlePath) {
         logTaskProgress('ComposeTask', 'subtitle-filter-unavailable', {
@@ -224,9 +265,9 @@ export async function composeStoryboard(storyboardId: number): Promise<string> {
           outputOptions.push('-stream_loop', '0', '-i', videoPath)
           outputOptions.push('-map', '1:v:0')
         }
-        outputOptions.push('-map', '1:a:0', '-c:a', 'aac', '-shortest')
+        outputOptions.push('-map', '[aout]', '-c:a', 'aac', '-shortest')
       } else {
-        outputOptions.push('-an')
+        outputOptions.push('-map', '[aout]', '-c:a', 'aac')
       }
 
       cmd.outputOptions(outputOptions)

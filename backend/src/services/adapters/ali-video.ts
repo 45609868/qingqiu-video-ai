@@ -2,8 +2,8 @@
  * 阿里云百炼（万相）视频生成 Adapter
  * API 文档: https://help.aliyun.com/zh/model-studio/image-to-video-api-reference
  */
-import type { VideoProviderAdapter, VideoGenerationRecord } from './types'
-import { joinProviderUrl } from './url'
+import type { VideoProviderAdapter, VideoGenerationRecord } from './types.js'
+import { joinProviderUrl } from './url.js'
 
 export class AliVideoAdapter implements VideoProviderAdapter {
   readonly provider = 'ali'
@@ -29,7 +29,7 @@ export class AliVideoAdapter implements VideoProviderAdapter {
         img_url: record.imageUrl ?? record.firstFrameUrl ?? '',
       },
       parameters: {
-        resolution: this.normalizeResolution(record.aspectRatio ?? '16:9'),
+        resolution: this.normalizeResolution(record.aspectRatio ?? '9:16'),
         duration: record.duration || 5,
         watermark: false,
         seed: Math.floor(Math.random() * 2147483647),
@@ -105,7 +105,7 @@ export class AliVideoAdapter implements VideoProviderAdapter {
   }
 
   private normalizeResolution(aspectRatio?: string): string {
-    const ratio = aspectRatio || '16:9'
+    const ratio = aspectRatio || '9:16'
     if (ratio === '9:16') return '720P'
     if (ratio === '1:1') return '720P'
     return '1080P'

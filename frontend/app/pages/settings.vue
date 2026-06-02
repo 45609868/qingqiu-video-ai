@@ -392,14 +392,101 @@
       </form>
     </div>
   </div>
+
+      <!-- ===== BGM 库 ===== -->
+      <div v-if="tab === 'bgm'" class="settings-scroll">
+        <div class="section-header">
+          <h2 class="section-title">BGM 库管理</h2>
+          <p class="section-desc">为分集配置情绪化背景音乐。古风/玄幻/热血/紧张 等按情绪分类</p>
+        </div>
+
+        <div class="filter-bar">
+          <select v-model="bgmFilter.mood" @change="loadBgm" class="select">
+            <option value="">全部情绪</option>
+            <option v-for="m in bgmMeta.moods" :key="m" :value="m">{{ m }}</option>
+          </select>
+          <select v-model="bgmFilter.category" @change="loadBgm" class="select">
+            <option value="">全部分类</option>
+            <option v-for="c in bgmMeta.categories" :key="c" :value="c">{{ c }}</option>
+          </select>
+          <button class="btn btn-primary" @click="openBgmDialog">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            添加 BGM
+          </button>
+        </div>
+
+        <div v-if="bgmList.length === 0" class="empty-state">
+          <p>暂无 BGM。点击"添加 BGM"开始。</p>
+        </div>
+
+        <div v-else class="bgm-grid">
+          <div v-for="b in bgmList" :key="b.id" class="bgm-card">
+            <div class="bgm-card-header">
+              <div class="bgm-card-title">{{ b.name }}</div>
+              <button class="btn-icon" @click="deleteBgm(b.id)" title="删除">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+              </button>
+            </div>
+            <div class="bgm-card-meta">
+              <span v-if="b.mood" class="bgm-tag">{{ b.mood }}</span>
+              <span v-if="b.category" class="bgm-tag">{{ b.category }}</span>
+              <span v-if="b.duration" class="bgm-tag">{{ Math.round(b.duration) }}s</span>
+              <span v-if="b.is_builtin" class="bgm-tag is-builtin">内置</span>
+            </div>
+            <div class="bgm-card-path" :title="b.file_path">{{ b.file_path }}</div>
+            <audio v-if="b.file_path" :src="'/static/' + b.file_path.replace(/^static\//, '')" controls class="bgm-audio" />
+          </div>
+        </div>
+
+        <div v-if="bgmDialog" class="modal-mask" @click.self="bgmDialog = false">
+          <div class="modal-card">
+            <div class="modal-title">添加 BGM</div>
+            <form @submit.prevent="saveBgm">
+              <label class="field">
+                <span class="field-label">名称 *</span>
+                <input v-model="bgmForm.name" class="input" placeholder="如 热血激战" required />
+              </label>
+              <label class="field">
+                <span class="field-label">文件路径 *</span>
+                <input v-model="bgmForm.filePath" class="input" placeholder="static/bgm/xxx.mp3" required />
+              </label>
+              <div class="field-row">
+                <label class="field" style="flex:1">
+                  <span class="field-label">情绪</span>
+                  <select v-model="bgmForm.mood" class="select">
+                    <option value="">无</option>
+                    <option v-for="m in bgmMeta.moods" :key="m" :value="m">{{ m }}</option>
+                  </select>
+                </label>
+                <label class="field" style="flex:1">
+                  <span class="field-label">分类</span>
+                  <select v-model="bgmForm.category" class="select">
+                    <option value="">无</option>
+                    <option v-for="c in bgmMeta.categories" :key="c" :value="c">{{ c }}</option>
+                  </select>
+                </label>
+                <label class="field" style="flex:1">
+                  <span class="field-label">时长(秒)</span>
+                  <input v-model.number="bgmForm.duration" type="number" class="input" />
+                </label>
+              </div>
+              <div class="modal-actions">
+                <button type="button" class="btn" @click="bgmDialog = false">取消</button>
+                <button type="submit" class="btn btn-primary" :disabled="!bgmForm.name || !bgmForm.filePath">保存</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { Plus, Pencil, Trash2, FileText, ChevronDown, Check, Loader2, Bot, Cpu, Sparkles } from 'lucide-vue-next'
+import { Plus, Pencil, Trash2, FileText, ChevronDown, Check, Loader2, Bot, Cpu, Sparkles, Music } from 'lucide-vue-next'
 import BaseSelect from '~/components/BaseSelect.vue'
 import { toast } from 'vue-sonner'
-import { aiConfigAPI, agentConfigAPI, skillsAPI } from '~/composables/useApi'
+import { aiConfigAPI, agentConfigAPI, skillsAPI, bgmAPI } from '~/composables/useApi'
 import brandLogo from '~/assets/qingqiu-logo.png'
 
 const showBrandImage = ref(true)
@@ -411,9 +498,13 @@ const baseTabs = [
 const advancedTabs = [
   { id: 'agents', label: 'Agent 配置', icon: Bot },
   { id: 'skills', label: 'Skills', icon: FileText },
+  { id: 'bgm', label: 'BGM 库', icon: Music },
 ]
 watch(showAdvanced, (v) => {
   if (!v && tab.value !== 'ai') tab.value = 'ai'
+})
+watch(tab, (v) => {
+  if (v === 'bgm') { loadBgmMeta(); loadBgm() }
 })
 
 // ===== AI Service Configs =====
@@ -507,6 +598,47 @@ function applyProviderPreset(type, provider) {
 async function loadCfgs() { try { cfgs.value = await aiConfigAPI.list() } catch (e) { toast.error(e.message) } }
 async function toggleCfg(c) { await aiConfigAPI.update(c.id, { is_active: !c.is_active }); loadCfgs() }
 const syncingVoices = ref(false)
+
+// ===== BGM Library =====
+const bgmList = ref([])
+const bgmDialog = ref(false)
+const bgmForm = reactive({ name: '', category: '', mood: '', filePath: '', duration: 0, isBuiltin: false, isActive: true })
+const bgmMeta = ref({ moods: [], categories: [] })
+const bgmFilter = reactive({ mood: '', category: '' })
+const bgmFilterDramaId = ref(null)
+async function loadBgmMeta() {
+  try { bgmMeta.value = await bgmAPI.meta() as any } catch {}
+}
+async function loadBgm() {
+  try {
+    const params: any = {}
+    if (bgmFilter.mood) params.mood = bgmFilter.mood
+    if (bgmFilter.category) params.category = bgmFilter.category
+    bgmList.value = await bgmAPI.list(params) as any
+  } catch (err) { console.error(err) }
+}
+function openBgmDialog() {
+  bgmForm.name = ''
+  bgmForm.category = ''
+  bgmForm.mood = ''
+  bgmForm.filePath = ''
+  bgmForm.duration = 0
+  bgmForm.isBuiltin = false
+  bgmForm.isActive = true
+  bgmDialog.value = true
+}
+async function saveBgm() {
+  if (!bgmForm.name || !bgmForm.filePath) return
+  try {
+    await bgmAPI.create(bgmForm)
+    bgmDialog.value = false
+    await loadBgm()
+  } catch (err) { console.error(err) }
+}
+async function deleteBgm(id: number) {
+  if (!confirm('删除该 BGM？')) return
+  try { await bgmAPI.del(id); await loadBgm() } catch (err) { console.error(err) }
+}
 async function syncVoices() {
   syncingVoices.value = true
   try {

@@ -9,8 +9,8 @@ import type {
   ImageGenerationRecord,
   ImageGenResponse,
   ImagePollResponse,
-} from './types'
-import { joinProviderUrl } from './url'
+} from './types.js'
+import { joinProviderUrl } from './url.js'
 
 export class MiniMaxImageAdapter implements ImageProviderAdapter {
   provider = 'minimax'
@@ -36,6 +36,9 @@ export class MiniMaxImageAdapter implements ImageProviderAdapter {
 
     // MiniMax only accepts fixed aspect-ratio labels, not raw dimensions.
     body.aspect_ratio = this.normalizeAspectRatio(size)
+
+    // Ensure 9:16 vertical format
+    body.aspect_ratio = '9:16'
 
     return {
       url: joinProviderUrl(config.baseUrl, '/v1', '/image_generation'),

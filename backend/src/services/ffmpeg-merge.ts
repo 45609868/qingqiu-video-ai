@@ -77,13 +77,15 @@ export async function mergeEpisodesWithTransition(
 
   // 视频直接 concat（分镜之间视觉硬切，红果短剧标准做法）
   // 音频用 acrossfade 软过渡
+  // 所有输入视频强制缩放为 9:16 (1080x1920) 以保证拼接一致性
   let cmd: string
   if (clipPaths.length >= 2) {
-    // 视频 concat + 音频 crossfade
-    const videoFilter = clipPaths.map((_, i) => `[${i}:v]`).join('') + `concat=n=${clipPaths.length}:v=1:a=0[outv]`
-    cmd = `ffmpeg -y ${inputs} -filter_complex "${videoFilter};${audioFilter.replace('[outa]"', `[outa]"`)}" -map "[outv]" -map "[outa]" -c:v libx265 -crf 23 -preset fast -c:a aac -b:a 192k -ar 48000 "${outputPath}"`
+    // 9:16 竖屏 scale + concat
+    const scaledInputs = clipPaths.map((_, i) => `[${i}:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1[sv${i}]`)
+    const videoFilter = scaledInputs.join(';') + ';' + clipPaths.map((_, i) => `[sv${i}]`).join('') + `concat=n=${clipPaths.length}:v=1:a=0[outv]`
+    cmd = `ffmpeg -y ${inputs} -filter_complex "${videoFilter};${audioFilter.replace('[outa]"', '[outa]"')}" -map "[outv]" -map "[outa]" -c:v libx265 -crf 23 -preset fast -c:a aac -b:a 192k -ar 48000 "${outputPath}"`
   } else {
-    cmd = `ffmpeg -y -i "${clipPaths[0]}" -c:v libx265 -crf 23 -preset fast -c:a aac -b:a 192k "${outputPath}"`
+    cmd = `ffmpeg -y -i "${clipPaths[0]}" -vf "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920" -c:v libx265 -crf 23 -preset fast -c:a aac -b:a 192k "${outputPath}"`
   }
 
   try {

@@ -1,6 +1,6 @@
 import { ref } from 'vue'
 import { toast } from 'vue-sonner'
-import { api } from './useApi'
+import { api } from './useApi.js'
 
 export function useAgent() {
   const running = ref(false)

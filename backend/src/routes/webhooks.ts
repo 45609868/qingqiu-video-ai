@@ -7,7 +7,7 @@ import { eq } from 'drizzle-orm'
 import { db, schema } from '../db/index.js'
 import { success, badRequest } from '../utils/response.js'
 import { downloadFile } from '../utils/storage.js'
-import { ViduVideoAdapter } from '../services/adapters/vidu-video'
+import { ViduVideoAdapter } from '../services/adapters/vidu-video.js'
 import { logTaskError, logTaskProgress, logTaskSuccess, logTaskWarn } from '../utils/task-logger.js'
 
 const app = new Hono()

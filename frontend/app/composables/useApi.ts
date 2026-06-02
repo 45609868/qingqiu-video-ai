@@ -157,3 +157,43 @@ export const voicesAPI = {
   list: (provider?: string) => api.get(`/ai-voices${provider ? `?provider=${provider}` : ''}`),
   sync: () => api.post('/ai-voices/sync', {}),
 }
+
+export const bgmAPI = {
+  list: (params?: { mood?: string; category?: string; drama_id?: number }) => {
+    const q = new URLSearchParams()
+    if (params?.mood) q.set('mood', params.mood)
+    if (params?.category) q.set('category', params.category)
+    if (params?.drama_id) q.set('drama_id', String(params.drama_id))
+    return api.get(`/bgm${q.size ? `?${q.toString()}` : ''}`)
+  },
+  create: (data: any) => api.post('/bgm', data),
+  update: (id: number, data: any) => api.put(`/bgm/${id}`, data),
+  del: (id: number) => api.del(`/bgm/${id}`),
+  assign: (episodeId: number, bgmId: number) => api.post('/bgm/assign', { episodeId, bgmId }),
+  meta: () => api.get('/bgm/meta'),
+}
+
+export const coverAPI = {
+  templates: (params?: { genre?: string; style?: string }) => {
+    const q = new URLSearchParams()
+    if (params?.genre) q.set('genre', params.genre)
+    if (params?.style) q.set('style', params.style)
+    return api.get(`/covers/templates${q.size ? `?${q.toString()}` : ''}`)
+  },
+  createTemplate: (data: any) => api.post('/covers/templates', data),
+  generate: (dramaId: number, data: { prompt?: string; config_id?: number } = {}) => api.post('/covers/generate', { dramaId, ...data }),
+  forDrama: (dramaId: number) => api.get(`/covers/drama/${dramaId}`),
+}
+
+export const promptTemplateAPI = {
+  list: (params?: { category?: string; keyword?: string }) => {
+    const q = new URLSearchParams()
+    if (params?.category) q.set('category', params.category)
+    if (params?.keyword) q.set('keyword', params.keyword)
+    return api.get(`/prompts${q.size ? `?${q.toString()}` : ''}`)
+  },
+  create: (data: any) => api.post('/prompts', data),
+  update: (id: number, data: any) => api.put(`/prompts/${id}`, data),
+  del: (id: number) => api.del(`/prompts/${id}`),
+  render: (id: number, variables: Record<string, any>) => api.post('/prompts/render', { id, variables }),
+}

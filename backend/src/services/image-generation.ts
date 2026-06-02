@@ -3,8 +3,8 @@ import { eq } from 'drizzle-orm'
 import { getActiveConfig, getConfigById } from './ai.js'
 import { now } from '../utils/response.js'
 import { downloadFile, readImageAsCompressedDataUrl, saveBase64Image } from '../utils/storage.js'
-import { getImageAdapter } from './adapters/registry'
-import type { AIConfig } from './adapters/types'
+import { getImageAdapter } from './adapters/registry.js'
+import type { AIConfig } from './adapters/types.js'
 import { logTaskError, logTaskPayload, logTaskProgress, logTaskStart, logTaskSuccess, logTaskWarn, redactUrl } from '../utils/task-logger.js'
 
 interface GenerateImageParams {
@@ -153,7 +153,7 @@ export async function generateImage(params: GenerateImageParams): Promise<number
     prompt: params.prompt,
     model: params.model || config.model,
     provider: config.provider,
-    size: params.size || '1080x1920',
+    size: params.size || '1080x1920', // 9:16 vertical
     frameType: params.frameType,
     referenceImages: params.referenceImages ? JSON.stringify(params.referenceImages) : null,
     status: 'queued',

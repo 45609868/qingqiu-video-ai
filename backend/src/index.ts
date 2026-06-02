@@ -37,6 +37,9 @@ import dashboard from './routes/dashboard.js'
 import novelImport from './routes/novelImport.js'
 import batchGenerate from './routes/batchGenerate.js'
 import oneClickGenerate from './routes/oneClickGenerate.js'
+import bgm from './routes/bgm.js'
+import covers from './routes/covers.js'
+import prompts from './routes/prompts.js'
 import { requestLogger, errorHandler } from './middleware/logger.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -79,6 +82,9 @@ api.route('/dashboard', dashboard)
 api.route('/dramas', novelImport)
 api.route('/dramas', batchGenerate)
 api.route('/dramas', oneClickGenerate)
+api.route('/bgm', bgm)
+api.route('/covers', covers)
+api.route('/prompts', prompts)
 
 app.route('/api/v1', api)
 

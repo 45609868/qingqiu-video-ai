@@ -58,7 +58,7 @@ export function createGridPromptTools(episodeId: number, dramaId: number) {
       if (c.personality) parts.push(`personality: ${c.personality}`)
 
       const base = parts.join(', ')
-      const prompt = `${base}, ${dramaStyle} style, high quality, consistent art style, no text, no watermark`
+      const prompt = `${base}, ${dramaStyle} style, high quality, consistent art style, 9:16 vertical, no text, no watermark`
 
       return {
         character_id: c.id,
@@ -109,7 +109,7 @@ export function createGridPromptTools(episodeId: number, dramaId: number) {
       if (s.prompt) parts.push(s.prompt)
 
       const base = parts.join(', ')
-      const prompt = `${base}, ${dramaStyle} style, atmospheric lighting, high quality, consistent art style, no text, no watermark`
+      const prompt = `${base}, ${dramaStyle} style, atmospheric lighting, high quality, 9:16 vertical, consistent art style, no text, no watermark`
 
       return {
         scene_id: s.id,

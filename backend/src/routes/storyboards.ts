@@ -5,6 +5,7 @@ import { success, created, now, badRequest } from '../utils/response.js'
 import { toSnakeCase } from '../utils/transform.js'
 import { generateDialogueTTS } from '../services/tts-generation.js'
 import { generateVideo } from '../services/video-generation.js'
+import { injectCharacterReferences } from '../services/character-consistency.js'
 import { composeStoryboard } from '../services/ffmpeg-compose.js'
 import { parseDialogueSegments, resolveCharacterVoice, stringifySubtitleSegments } from '../services/dialogue-utils.js'
 import { logTaskError, logTaskPayload, logTaskProgress, logTaskStart, logTaskSuccess } from '../utils/task-logger.js'
@@ -247,7 +248,7 @@ app.post('/:id/regenerate', async (c) => {
       const configId = ep?.videoConfigId || null
 
       logTaskProgress('StoryboardAPI', 'regenerate-video', { storyboardId: id, imageUrl })
-      const videoId = await generateVideo({
+      const baseVideoParams = {
         storyboardId: id,
         dramaId: ep?.dramaId,
         prompt: sb.videoPrompt || sb.description || '',
@@ -255,7 +256,8 @@ app.post('/:id/regenerate', async (c) => {
         referenceMode: imageUrl ? 'first_frame' : 'none',
         duration: sb.duration || 5,
         configId: configId || undefined,
-      })
+      }
+      const videoId = await generateVideo(injectCharacterReferences(baseVideoParams, { force: true }))
       await waitForVideoRegeneration(videoId, 600_000)
     }
 

@@ -32,6 +32,12 @@
         </svg>
         添加集
       </button>
+      <button class="btn btn-secondary" @click="generateCover" :disabled="generatingCover">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+          <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
+        </svg>
+        {{ generatingCover ? '生成中...' : '生成封面' }}
+      </button>
       <button class="btn btn-secondary" @click="openOneClick" v-if="!batchStatus || batchStatus.status !== 'running'">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
           <polygon points="5 3 19 12 5 21 5 3"/>
@@ -296,6 +302,20 @@ function episodeNumberById(episodeId) {
   if (!ep) return '??'
   const num = ep.episode_number || ep.episodeNumber
   return String(num).padStart(2, '0')
+}
+
+const generatingCover = ref(false)
+async function generateCover() {
+  if (!drama.value) return
+  generatingCover.value = true
+  try {
+    await coverAPI.generate(drama.value.id, {})
+    toast.success('封面生成任务已启动，完成后会自动应用')
+  } catch (err) {
+    toast.error('封面生成失败：' + (err?.message || 'unknown'))
+  } finally {
+    generatingCover.value = false
+  }
 }
 
 function openOneClick() {

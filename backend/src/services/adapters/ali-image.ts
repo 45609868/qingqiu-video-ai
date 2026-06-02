@@ -2,8 +2,8 @@
  * 阿里云百炼（万相）图片生成 Adapter
  * API 文档: https://help.aliyun.com/zh/model-studio/text-to-image-v2-api-reference
  */
-import type { ImageProviderAdapter, ImageGenerationRecord } from './types'
-import { joinProviderUrl } from './url'
+import type { ImageProviderAdapter, ImageGenerationRecord } from './types.js'
+import { joinProviderUrl } from './url.js'
 
 export class AliImageAdapter implements ImageProviderAdapter {
   readonly provider = 'ali'
@@ -127,12 +127,12 @@ export class AliImageAdapter implements ImageProviderAdapter {
    * 将 "1920x1080" 转换为阿里需要的 "1696*960" 格式
    */
   private normalizeSize(size: string): string {
-    // 默认比例 16:9
+    // 默认比例 9:16 竖屏
     const [w, h] = size.split('x').map(Number)
     if (w && h) {
       // 映射到 Ali 支持的比例
       const aspect = w / h
-      if (aspect > 1.7) return '1696*960' // 16:9
+      if (aspect < 0.7) return '960*1696' // 9:16
       if (aspect < 0.8) return '960*1696' // 9:16
       return '1280*1280' // 1:1
     }

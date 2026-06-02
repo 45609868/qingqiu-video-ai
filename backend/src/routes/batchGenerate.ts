@@ -10,6 +10,7 @@ import { db, schema } from '../db/index.js'
 import { success, badRequest, notFound, created, now } from '../utils/response.js'
 import { generateImage } from '../services/image-generation.js'
 import { generateVideo } from '../services/video-generation.js'
+import { injectCharacterReferences } from '../services/character-consistency.js'
 import { composeStoryboard } from '../services/ffmpeg-compose.js'
 import { mergeEpisodeVideos } from '../services/ffmpeg-merge.js'
 import { createAgent } from '../agents/index.js'
@@ -131,6 +132,14 @@ app.get('/:taskId', async (c) => {
   const task = batchTasks.get(taskId)
   if (!task) return notFound(c, 'Batch task not found')
 
+  const episodesWithStep = task.episodes.map(ep => ({
+    episode_id: ep.episodeId,
+    status: ep.status,
+    step: ep.step || null,
+    error: ep.error || null,
+    failed_storyboard_ids: ep.failedStoryboardIds || [],
+  }))
+
   return success(c, {
     task_id: task.id,
     drama_id: task.dramaId,
@@ -138,7 +147,8 @@ app.get('/:taskId', async (c) => {
     total: task.total,
     completed: task.completed,
     failed: task.failed,
-    episodes: task.episodes,
+    progress: task.total > 0 ? Math.round((task.completed + task.failed) * 100 / task.total) : 0,
+    episodes: episodesWithStep,
     created_at: task.createdAt,
     error: task.error,
   })
@@ -225,7 +235,7 @@ app.post('/:taskId/retry', async (c) => {
           const [ep] = db.select().from(schema.episodes).where(eq(schema.episodes.id, epTask.episodeId)).all()
           const configId = ep?.videoConfigId || null
           const imageUrl = sb.firstFrameImage || sb.composedImage || ''
-          const videoId = await generateVideo({
+          const videoId = await generateVideo(injectCharacterReferences({
             storyboardId: sb.id,
             dramaId: ep?.dramaId,
             prompt: sb.videoPrompt || sb.description || '',
@@ -233,7 +243,7 @@ app.post('/:taskId/retry', async (c) => {
             referenceMode: imageUrl ? 'first_frame' : 'none',
             duration: sb.duration || 5,
             configId: configId || undefined,
-          })
+          }, { force: true }))
           await waitForVideoGeneration(videoId, 600_000)
         }
       }
@@ -298,6 +308,14 @@ async function processBatchTask(
         progress: `${i + 1}/${episodeIds.length}`,
       })
 
+      // Step 0: Script rewrite (only if no script_content)
+      epTask.step = 'check_script'
+      const [epForCheck] = db.select().from(schema.episodes).where(eq(schema.episodes.id, episodeId)).all()
+      if (!epForCheck?.scriptContent) {
+        epTask.step = 'rewrite_script'
+        await runScriptRewriter(episodeId, bt.dramaId)
+      }
+
       // Step 1: Extract characters (if none exist for drama)
       epTask.step = 'extract_characters'
       await ensureCharactersForDrama(bt.dramaId, episodeId)
@@ -305,6 +323,10 @@ async function processBatchTask(
       // Step 2: Extract storyboards (agent call)
       epTask.step = 'extract_storyboards'
       await ensureStoryboardsForEpisode(episodeId, bt.dramaId)
+
+      // Step 2.5: Voice assignment
+      epTask.step = 'voice_assign'
+      await runVoiceAssigner(episodeId, bt.dramaId)
 
       // Step 3: Generate images for all storyboards (with concurrency)
       epTask.step = 'generate_images'
@@ -378,6 +400,40 @@ async function processBatchTask(
     completed: bt.completed,
     failed: bt.failed,
   })
+}
+
+
+async function runScriptRewriter(episodeId: number, dramaId: number) {
+  try {
+    const rewriter = createAgent('script_rewriter', episodeId, dramaId)
+    if (!rewriter) throw new Error('script_rewriter agent not found')
+    await rewriter.generate(
+      [{ role: 'user', content: '请把当前集内容改写为标准短剧剧本格式（包含场景、动作、对白），要求强反转、爽点密集、节奏紧凑。' }],
+      { maxSteps: 20 }
+    )
+    logTaskSuccess('BatchTask', 'script-rewritten', { episodeId })
+  } catch (err: any) {
+    logTaskError('BatchTask', 'script-rewrite', { episodeId, error: err.message })
+    throw err
+  }
+}
+
+async function runVoiceAssigner(episodeId: number, dramaId: number) {
+  try {
+    const assigner = createAgent('voice_assigner', episodeId, dramaId)
+    if (!assigner) {
+      logTaskProgress('BatchTask', 'voice-assigner-skipped', { episodeId, reason: 'agent not found' })
+      return
+    }
+    await assigner.generate(
+      [{ role: 'user', content: '请为当前集的所有角色分配合适的 AI 音色（参考 drama 的题材与角色性格）。' }],
+      { maxSteps: 10 }
+    )
+    logTaskSuccess('BatchTask', 'voices-assigned', { episodeId })
+  } catch (err: any) {
+    logTaskError('BatchTask', 'voice-assign', { episodeId, error: err.message })
+    // Non-fatal: continue without voice assignment
+  }
 }
 
 async function ensureCharactersForDrama(dramaId: number, episodeId: number) {
@@ -498,7 +554,7 @@ async function generateVideosForEpisode(episodeId: number) {
     const imageUrl = sb.firstFrameImage || sb.composedImage || ''
     const prompt = sb.videoPrompt || sb.description || ''
 
-    const p = generateVideo({
+    const p = generateVideo(injectCharacterReferences({
       storyboardId: sb.id,
       dramaId: ep?.dramaId,
       prompt,
@@ -506,7 +562,7 @@ async function generateVideosForEpisode(episodeId: number) {
       referenceMode: imageUrl ? 'first_frame' : 'none',
       duration: sb.duration || 5,
       configId: configId || undefined,
-    }).then(async (videoId) => {
+    }, { force: true })).then(async (videoId) => {
       await waitForVideoGeneration(videoId, 600_000)
     })
     videoPromises.push(p)
