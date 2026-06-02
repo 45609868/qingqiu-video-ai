@@ -155,7 +155,7 @@ app.get('/drama/:id', async (c) => {
 function buildDefaultCoverPrompt(drama: typeof schema.dramas.$inferSelect): string {
   return [
     `微短剧封面图《${drama.title}》`,
-    drama.style || 'cinematic',
+    drama.style || 'anime',
     'epic composition, dramatic lighting, central focus',
     '9:16 vertical, ultra-detailed, 1080x1920',
     drama.description || '',

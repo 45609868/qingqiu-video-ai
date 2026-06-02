@@ -141,7 +141,7 @@ function buildGridPrompt(
   dramaStyle: string,
   referenceAssets: Array<{ path: string; label: string; kind: string; imageLabel: string }>,
 ): string {
-  const style = dramaStyle || 'cinematic'
+  const style = dramaStyle || 'anime'
   const storyboardCharacterIds = getStoryboardCharacterIds(storyboards.map((sb) => sb.id))
   const legend = buildReferenceLegend(referenceAssets)
 
@@ -223,7 +223,7 @@ function buildGridCellPrompts(
   referenceAssets: Array<{ path: string; label: string; kind: string; imageLabel: string }>,
 ) {
   if (!storyboards.length) return []
-  const style = dramaStyle || 'cinematic'
+  const style = dramaStyle || 'anime'
   const storyboardCharacterIds = getStoryboardCharacterIds(storyboards.map((sb) => sb.id))
 
   if (mode === 'multi_ref') {
