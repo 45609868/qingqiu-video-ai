@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { eq, isNull, like, desc } from 'drizzle-orm'
+import { eq, isNull, like, desc, and } from 'drizzle-orm'
 import { db, schema } from '../db/index.js'
 import { success, badRequest, notFound, created, now } from '../utils/response.js'
 import { toSnakeCase, toSnakeCaseArray } from '../utils/transform.js'
@@ -80,11 +80,11 @@ app.get('/', async (c) => {
   // Attach episode/character/scene counts
   const enriched = await Promise.all(items.map(async (drama) => {
     const eps = await db.select().from(schema.episodes)
-      .where(eq(schema.episodes.dramaId, drama.id))
+      .where(and(eq(schema.episodes.dramaId, drama.id), isNull(schema.episodes.deletedAt)))
     const chars = await db.select().from(schema.characters)
-      .where(eq(schema.characters.dramaId, drama.id))
+      .where(and(eq(schema.characters.dramaId, drama.id), isNull(schema.characters.deletedAt)))
     const scns = await db.select().from(schema.scenes)
-      .where(eq(schema.scenes.dramaId, drama.id))
+      .where(and(eq(schema.scenes.dramaId, drama.id), isNull(schema.scenes.deletedAt)))
     return {
       ...toSnakeCase(drama),
       tags: drama.tags ? JSON.parse(drama.tags) : [],
@@ -158,14 +158,14 @@ app.get('/:id', async (c) => {
   if (!drama) return notFound(c, '剧本不存在')
 
   const eps = repairEpisodeConfigs(await db.select().from(schema.episodes)
-    .where(eq(schema.episodes.dramaId, id))
+    .where(and(eq(schema.episodes.dramaId, id), isNull(schema.episodes.deletedAt)))
     .all())
   const chars = await db.select().from(schema.characters)
-    .where(eq(schema.characters.dramaId, id))
+    .where(and(eq(schema.characters.dramaId, id), isNull(schema.characters.deletedAt)))
   const scns = await db.select().from(schema.scenes)
-    .where(eq(schema.scenes.dramaId, id))
+    .where(and(eq(schema.scenes.dramaId, id), isNull(schema.scenes.deletedAt)))
   const prps = await db.select().from(schema.props)
-    .where(eq(schema.props.dramaId, id))
+    .where(and(eq(schema.props.dramaId, id), isNull(schema.props.deletedAt)))
 
   return success(c, {
     ...toSnakeCase(drama),

@@ -55,7 +55,7 @@ a {gender} {age_range} {style_label} character,
 
 ```
 {style_label}: Chinese xianxia anime style / guofeng
-{style_keywords}: ink-painting color palette, donghua style, 3D-to-2D shading, hand-painted texture, hongman line art, silk and satin fabric rendering, magical aura glow
+{style_keywords}: Chinese mature 3D donghua style, Jianlai Xianxia style, realistic facial features, low saturation, thick paint texture, traditional hanfu costume, no big anime eyes, no bright colors, no Japanese anime style
 ```
 
 ### real 风格关键词包（注入到 reference_prompt）
@@ -80,7 +80,7 @@ ink-black long hair tied in high topknot with loose strands framing the face,
 ink-white hanfu robe with silver cloud-pattern embroidery, Tang dynasty silhouette, layered sleeves,
 jade-green sword pendant at waist, ivory hairpin with carved lotus,
 portrait shot, head and upper torso, eye-level, neutral calm expression,
-9:16 vertical aspect ratio, ink-painting color palette, donghua style, hongman line art, hand-painted texture, masterpiece, high detail
+9:16 vertical aspect ratio, Chinese mature 3D donghua style, Jianlai Xianxia aesthetic, low saturation, thick paint texture, masterpiece, high detail
 ```
 
 ✅ 正确（real）：
@@ -125,7 +125,7 @@ portrait shot, head and upper torso, eye-level, neutral calm expression,
 - **scene_type**：`interior wide shot` / `exterior establishing shot` / `courtyard view` / `cave interior` 等
 - **architectural_anchors**：飞檐 / 斗拱 / 雕花木窗 / 竹帘 / 石灯笼（anime）/ 朱漆大门 / 青砖灰瓦（real）
 - **weather_anchors**：薄雾 / 落花 / 雨丝 / 月华 / 残阳
-- **anime 关键词包**：`donghua background art, ink-painting atmosphere, dunhuang color palette, hand-painted texture, no people`
+- **anime 关键词包**：`Chinese mature 3D donghua background art, Jianlai Xianxia atmosphere, low saturation, thick paint texture, traditional Chinese architecture, no people`
 - **real 关键词包**：`cinematic photorealistic location shot, practical set design, atmospheric haze, period-accurate architecture, anamorphic lens, no people`
 
 ### 场景锚点铁律

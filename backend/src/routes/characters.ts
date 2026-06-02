@@ -9,26 +9,58 @@ import { logTaskError, logTaskStart, logTaskSuccess } from '../utils/task-logger
 const app = new Hono()
 
 function buildCharacterReferencePrompt(char: any, dramaStyle: string) {
-  const identityPrompt = char.referencePrompt || `${char.name}, ${char.appearance || char.description || '人物立绘'}`
+  // identity 优先级: referencePrompt > name+appearance > name+description
+  const identityPrompt = char.referencePrompt
+    || (char.name && char.appearance ? `${char.name}, ${char.appearance}` : null)
+    || (char.name && char.description ? `${char.name}, ${char.description}` : null)
+    || (char.name ? `${char.name} character portrait` : 'character portrait')
 
   // 风格硬约束：仅 anime / real 二选一，其它值按 anime 处理
   const stylePrompt = (() => {
     switch (dramaStyle) {
       case 'real':
-        return 'cinematic photorealistic, period-accurate Chinese costume live-action, studio key lighting, 35mm film, shallow depth of field, 8K skin detail, film grain, anamorphic lens, no anime, no cartoon, no illustration'
+        return [
+          'Chinese wuxia xianxia historical drama, 4K live action',
+          'realistic skin texture, moody cinematic lighting, volumetric fog',
+          'shallow depth of field, bokeh, film grain, cinematic color grading',
+          'Chinese historical costume, authentic period-accurate clothing',
+          'no anime, no cartoon, no illustration, no painting',
+        ].join(', ')
       case 'anime':
       default:
-        return 'Chinese xianxia anime style, donghua, ink-painting color palette, hongman line art, hand-painted texture, silk and satin fabric rendering, 3D-to-2D shading, magical aura glow, no photorealistic, no live-action'
+        return [
+          'Chinese mature 3D donghua style, Jianlai Xianxia style',
+          'realistic facial features, low saturation, thick paint texture',
+          'Chinese historical fantasy aesthetic, traditional hanfu costume',
+          'no big anime eyes, no bright colors, no Japanese anime style',
+          'no photorealistic, no live-action, no Western cartoon',
+        ].join(', ')
     }
   })()
+
+  // 质量正向强化 + 负面排除
+  const qualityPrompt = 'masterpiece, best quality, highly detailed, ultra crisp lines, perfect anatomy, 8K resolution'
+  const negativePrompt = 'watermark, signature, text, blurry, low quality, deformed, bad hands, extra fingers, missing fingers, bad proportions, asymmetrical face, cloned face, duplicate, ugly, gross proportions, mutation, mutated'
+
+  // composition: 多视图角色设定卡（游戏/影视概念设计风格）
+  const compositionPrompt = [
+    'AAA game character reference sheet, single image character design board',
+    'large cinematic portrait close-up, wet skin, cinematic lighting',
+    'front view full body, back view full body, left profile full body, right profile full body, three-quarter view',
+    'full body character turnaround, multiple angle turnaround sheet',
+    'face detail close-up, eye detail, hand detail, costume detail, equipment detail, footwear detail',
+    'character information panel, age height weight occupation personality traits',
+    'color palette swatches, clean professional layout, dark cinematic background',
+    'artstation concept art, character presentation board, production design sheet',
+    'highly detailed, 8K resolution, single image collage, reference sheet composition',
+  ].join(', ')
 
   return [
     identityPrompt,
     stylePrompt,
-    'full body character, standing upright, front view, centered composition',
-    'complete hairstyle visible, clear face, complete outfit, hands, legs, feet and shoes visible',
-    'head-to-toe framing, no cropping, no close-up portrait',
-    'plain white background, high quality, consistent identity',
+    qualityPrompt,
+    compositionPrompt,
+    negativePrompt,
   ].join(', ')
 }
 
@@ -60,12 +92,12 @@ app.delete('/:id', async (c) => {
 app.post('/:id/generate-voice-sample', async (c) => {
   const id = Number(c.req.param('id'))
   const body = await c.req.json().catch(() => ({}))
-  const [char] = db.select().from(schema.characters).where(eq(schema.characters.id, id)).all()
+  const char = db.select().from(schema.characters).where(eq(schema.characters.id, id)).get()
   if (!char) return badRequest(c, 'Character not found')
   if (!char.voiceStyle) return badRequest(c, '请先分配音色')
   if (!body.episode_id) return badRequest(c, 'episode_id is required')
 
-  const [ep] = db.select().from(schema.episodes).where(eq(schema.episodes.id, Number(body.episode_id))).all()
+  const ep = db.select().from(schema.episodes).where(eq(schema.episodes.id, Number(body.episode_id))).get()
   if (!ep) return badRequest(c, 'Episode not found')
 
   try {
@@ -86,15 +118,18 @@ app.post('/:id/generate-voice-sample', async (c) => {
 app.post('/:id/generate-image', async (c) => {
   const id = Number(c.req.param('id'))
   const body = await c.req.json()
-  const [char] = db.select().from(schema.characters).where(eq(schema.characters.id, id)).all()
+  const char = db.select().from(schema.characters).where(eq(schema.characters.id, id)).get()
   if (!char) return badRequest(c, 'Character not found')
+  if (char.imageLockStatus === 'locked' && char.lockedImageUrl) {
+    return badRequest(c, '该角色已锁定图片，请先解锁再重新生成')
+  }
   if (!body.episode_id) return badRequest(c, 'episode_id is required')
 
-  const [ep] = db.select().from(schema.episodes).where(eq(schema.episodes.id, Number(body.episode_id))).all()
+  const ep = db.select().from(schema.episodes).where(eq(schema.episodes.id, Number(body.episode_id))).get()
   if (!ep) return badRequest(c, 'Episode not found')
 
   // 查询 drama 获取风格
-  const [drama] = db.select().from(schema.dramas).where(eq(schema.dramas.id, char.dramaId)).all()
+  const drama = db.select().from(schema.dramas).where(eq(schema.dramas.id, char.dramaId)).get()
   const dramaStyle = drama?.style || 'anime'
   const prompt = buildCharacterReferencePrompt(char, dramaStyle)
   try {
@@ -113,20 +148,27 @@ app.post('/batch-generate-images', async (c) => {
   const body = await c.req.json()
   const ids: number[] = body.character_ids || []
   if (!body.episode_id) return badRequest(c, 'episode_id is required')
-  const [ep] = db.select().from(schema.episodes).where(eq(schema.episodes.id, Number(body.episode_id))).all()
+  const ep = db.select().from(schema.episodes).where(eq(schema.episodes.id, Number(body.episode_id))).get()
   if (!ep) return badRequest(c, 'Episode not found')
   // 查询 drama 获取风格
-  const [drama] = db.select().from(schema.dramas).where(eq(schema.dramas.id, ep.dramaId)).all()
+  const drama = db.select().from(schema.dramas).where(eq(schema.dramas.id, ep.dramaId)).get()
   const dramaStyle = drama?.style || 'anime'
   const results: number[] = []
   for (const cid of ids) {
-    const [char] = db.select().from(schema.characters).where(eq(schema.characters.id, cid)).all()
+    const char = db.select().from(schema.characters).where(eq(schema.characters.id, cid)).get()
     if (!char) continue
+    // 跳过已锁图的角色
+    if (char.imageLockStatus === 'locked' && char.lockedImageUrl) {
+      logTaskSuccess('CharacterImage', 'batch-skip-locked', { characterId: cid, name: char.name })
+      continue
+    }
     const prompt = buildCharacterReferencePrompt(char, dramaStyle)
     try {
       const genId = await generateImage({ characterId: cid, dramaId: char.dramaId, prompt, size: '1080x1920', configId: ep.imageConfigId ?? undefined })
       results.push(genId)
-    } catch {}
+    } catch (err: any) {
+      logTaskError('CharacterImage', 'batch-generate', { characterId: cid, name: char.name, error: err.message })
+    }
   }
   logTaskSuccess('CharacterImage', 'batch-generate', { episodeId: ep.id, requested: ids.length, started: results.length, dramaStyle })
   return success(c, { count: results.length, ids: results })

@@ -2848,7 +2848,7 @@ async function watchUntil(check, options = {}) {
 }
 
 function watchAsyncResult(check, attempts = 24, delay = 2500, onTimeout = null) {
-  void watchUntil(check, { intervalMs: delay, maxMs: attempts * delay, onTimeout })
+  void watchUntil(check, { intervalMs: delay, maxMs: attempts * delay, onTimeout, refreshBeforeCheck: true })
 }
 
 function pickImageFile() {
@@ -2911,7 +2911,8 @@ async function genCharImg(id) {
     await characterAPI.generateImage(id, epId.value)
     toast.success('角色图片生成中')
     await refresh()
-    watchAsyncResult(() => {
+    watchAsyncResult(async () => {
+      await refresh()
       const char = chars.value.find(c => c.id === id)
       const nextImage = char?.image_url || char?.imageUrl || ''
       const done = !!nextImage && nextImage !== prevImage
@@ -2952,7 +2953,8 @@ async function genSceneImg(id) {
     await sceneAPI.generateImage(id, epId.value)
     toast.success('场景图片生成中')
     await refresh()
-    watchAsyncResult(() => {
+    watchAsyncResult(async () => {
+      await refresh()
       const scene = scenes.value.find(s => s.id === id)
       const nextImage = scene?.image_url || scene?.imageUrl || ''
       const done = !!nextImage && nextImage !== prevImage
@@ -3066,7 +3068,7 @@ function buildDefaultCharReferencePrompt(char) {
   return [
     char?.name || '角色',
     char?.appearance || char?.description || '',
-    '全身角色设定参考，保持同一张脸、完整发型、年龄、完整服装、体型、腿脚、鞋子和气质',
+    '专业AAA游戏角色设定卡，角色设计参考板，单图角色设计板，大头像特写，正面全身，背面全身，左侧立，右侧立，四分之三视图，全身角色转视图，多角度展示，面部细节特写，眼睛细节，手部细节，服装细节，装备细节，鞋履细节，人物信息面板，年龄身高体重职业性格特征，色彩色板，专业干净布局，暗色电影感背景，ArtStation概念艺术，角色展示板，制作设计表，高细节，8K分辨率，参考表构图，保持同一张脸、完整发型、年龄、完整服装、体型、腿脚、鞋子和气质',
   ].filter(Boolean).join('，')
 }
 
@@ -3355,7 +3357,8 @@ async function genShotFrame(sb, frameType, options = {}) {
       if (generation?.id) {
         void pollShotFrameGeneration(generation.id, { sb, frameType, prevImage })
       } else if (!options.skipRefresh) {
-        watchAsyncResult(() => {
+        watchAsyncResult(async () => {
+          await refresh()
           const target = sbs.value.find(s => s.id === sb.id)
           const nextImage = getFrameImage(target, frameType)
           const done = !!nextImage && nextImage !== prevImage
@@ -3555,7 +3558,8 @@ function retrySafeVideo(sb) {
 }
 async function pollVideoGeneration(generationId, storyboardId) {
   if (!generationId) {
-    watchAsyncResult(() => {
+    watchAsyncResult(async () => {
+      await refresh()
       const target = sbs.value.find(s => s.id === storyboardId)
       const done = !!(target?.video_url || target?.videoUrl)
       if (done) pendingVideoIds.value = pendingVideoIds.value.filter(item => item !== storyboardId)
