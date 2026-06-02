@@ -517,10 +517,10 @@ const cfgTestResult = ref(null)
 const cfgForm = reactive({ name: '', provider: '', api_key: '', base_url: '', modelStr: '', service_type: 'text', priority: 0 })
 const huobaoForm = reactive({ apiKey: '' })
 const serviceTypes = [{ type: 'text', label: '文本' }, { type: 'image', label: '图片' }, { type: 'video', label: '视频' }, { type: 'audio', label: '音频' }]
-const providers = ['ali', 'chatfire', 'gemini', 'minimax', 'openai', 'openrouter', 'vidu', 'volcengine']
-const PROVIDER_LABELS = { chatfire: 'ChatFire', gemini: 'Gemini', minimax: 'MiniMax', volcengine: '火山引擎', vidu: 'Vidu', ali: '阿里', openai: 'OpenAI', openrouter: 'OpenRouter' }
+const providers = ['ali', 'anyaigc', 'chatfire', 'gemini', 'minimax', 'openai', 'openrouter', 'vidu', 'volcengine']
+const PROVIDER_LABELS = { chatfire: 'ChatFire', gemini: 'Gemini', minimax: 'MiniMax', volcengine: '火山引擎', vidu: 'Vidu', ali: '阿里', anyaigc: 'AnyaIGC', openai: 'OpenAI', openrouter: 'OpenRouter' }
 const PROVIDER_SELECT_OPTIONS = computed(() => {
-  const extra = { chatfire: 'ChatFire 推荐', gemini: 'Gemini', minimax: 'MiniMax', volcengine: '火山引擎', vidu: 'Vidu', ali: '阿里', openai: 'OpenAI', openrouter: 'OpenRouter' }
+  const extra = { chatfire: 'ChatFire 推荐', gemini: 'Gemini', minimax: 'MiniMax', volcengine: '火山引擎', vidu: 'Vidu', ali: '阿里', anyaigc: 'AnyaIGC 推荐', openai: 'OpenAI', openrouter: 'OpenRouter' }
   return providers.map(p => ({ label: extra[p] || p, value: p }))
 })
 const serviceMeta = {
@@ -544,6 +544,7 @@ const providerPresets = {
   video: {
     volcengine: { label: '清秋视频', baseUrl: 'http://localhost:3000', models: ['doubao-seedance-1-5-pro-251215'] },
     vidu: { label: 'Vidu 推荐', baseUrl: 'https://api.vidu.com', models: ['viduq3-turbo'] },
+    anyaigc: { label: 'AnyaIGC 推荐', baseUrl: 'https://anyaigc.com', models: ['doubao-seedance-1-5-pro-251215'] },
     ali: { label: '阿里推荐', baseUrl: 'https://dashscope.aliyuncs.com', models: ['wan2.6-i2v-flash'] },
   },
   audio: {
@@ -565,6 +566,7 @@ const endpointPrefixes = {
   volcengine: '/api/v3',
   ali: '/api/v1',
   vidu: '/ent/v2',
+  anyaigc: '/api/v3',
 }
 
 const endpointHint = computed(() => {

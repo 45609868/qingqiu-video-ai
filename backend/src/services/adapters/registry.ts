@@ -10,6 +10,7 @@ import { GeminiImageAdapter } from './gemini-image.js'
 import { VolcEngineImageAdapter } from './volcengine-image.js'
 import { VolcEngineVideoAdapter } from './volcengine-video.js'
 import { ViduVideoAdapter } from './vidu-video.js'
+import { AnyaIGCVideoAdapter } from './anyaigc-video.js'
 import { AliImageAdapter } from './ali-image.js'
 import { AliVideoAdapter } from './ali-video.js'
 import type { ImageProviderAdapter, VideoProviderAdapter, TTSProviderAdapter } from './types.js'
@@ -31,6 +32,7 @@ export const videoAdapters: Record<string, VideoProviderAdapter> = {
   volcengine: new VolcEngineVideoAdapter(),
   vidu: new ViduVideoAdapter(),
   ali: new AliVideoAdapter(),
+  anyaigc: new AnyaIGCVideoAdapter(),
   // Chatfire 视频 - 待确认 API 格式
 }
 
