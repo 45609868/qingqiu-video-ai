@@ -2740,24 +2740,24 @@ async function doOneClickGenerate() {
       currentEpId,
       '请读取原始小说内容，按总编策略改写成格式化短剧剧本。按原文时间顺序自然叙事，不刻意制造强钩子或悬念。'
     )
-    await loadEpisode(currentEpId)
+    await refresh(currentEpId)
 
     // Step 3: auto-advance to extract step
     if (scriptStep.value < 2) scriptStep.value = 2
 
     // Step 4: extract characters and scenes
     await runAgent('extractor', '请从当前短剧剧本中提取本集实际出现、说话、被镜头表现或对冲突有效的角色和场景；不要遗漏"某某的声音/呼救声/怒吼/写道/说道"这类间接出场角色，并自动与项目已有数据去重合并。', dramaId, currentEpId)
-    await loadEpisode(currentEpId)
+    await refresh(currentEpId)
 
     // Step 5: assign voice
     await runAgent('voice_assigner', '请为所有角色分配合适的音色', dramaId, currentEpId)
-    await loadEpisode(currentEpId)
+    await refresh(currentEpId)
 
     // Step 6: storyboard breakdown
     const cfg = videoConfigs.value.find(c => c.id === lockedVideoConfigId.value)
     const label = cfg ? `${cfg.name} (${cfg.provider})` : '默认'
     await runAgent('storyboard_breaker', `请按正常竖屏短剧生产标准重拆分镜：第一集控制在 90-180 秒、12-15 个核心镜头，前 3-5 秒必须有强钩子。视频模型：${label}。video_prompt 只描述画面动作，必须要求 silent video, no spoken dialogue, no subtitles, no text，配音和字幕留给后期合成。`, dramaId, currentEpId)
-    await loadEpisode(currentEpId)
+    await refresh(currentEpId)
     scriptStep.value = 5
 
     // Step 7: switch to production panel
@@ -2776,7 +2776,7 @@ async function doRewrite() {
     currentDramaId,
     currentEpId,
     '请读取原始小说内容，按总编策略改写成格式化短剧剧本。按原文时间顺序自然叙事，不刻意制造强钩子或悬念。',
-    () => loadEpisode(currentEpId)
+    () => refresh(currentEpId)
   )
 }
 function skipRewrite() {
@@ -2793,11 +2793,11 @@ function skipRewrite() {
 function doExtract() {
   const currentEpId = epId.value
   saveScr()
-  runAgent('extractor', '请从当前短剧剧本中提取本集实际出现、说话、被镜头表现或对冲突有效的角色和场景；不要遗漏"某某的声音/呼救声/怒吼/写道/说道"这类间接出场角色，并自动与项目已有数据去重合并。', dramaId, currentEpId, () => loadEpisode(currentEpId))
+  runAgent('extractor', '请从当前短剧剧本中提取本集实际出现、说话、被镜头表现或对冲突有效的角色和场景；不要遗漏"某某的声音/呼救声/怒吼/写道/说道"这类间接出场角色，并自动与项目已有数据去重合并。', dramaId, currentEpId, () => refresh(currentEpId))
 }
 function doVoice() {
   const currentEpId = epId.value
-  runAgent('voice_assigner', '请为所有角色分配合适的音色', dramaId, currentEpId, () => loadEpisode(currentEpId))
+  runAgent('voice_assigner', '请为所有角色分配合适的音色', dramaId, currentEpId, () => refresh(currentEpId))
 }
 async function batchGenSamples() {
   const currentEpId = epId.value
@@ -2811,17 +2811,17 @@ async function batchGenSamples() {
   const failCount = results.length - okCount
   if (okCount) toast.success(`已生成 ${okCount} 份试听文件`)
   if (failCount) toast.error(`${failCount} 份试听文件生成失败`)
-  await loadEpisode(currentEpId)
+  await refresh(currentEpId)
 }
 function doBreakdown() {
   const currentEpId = epId.value
   const cfg = videoConfigs.value.find(c => c.id === lockedVideoConfigId.value)
   const label = cfg ? `${cfg.name} (${cfg.provider})` : '默认'
-  runAgent('storyboard_breaker', `请按正常竖屏短剧生产标准重拆分镜：第一集控制在 90-180 秒、12-15 个核心镜头，前 3-5 秒必须有强钩子。视频模型：${label}。video_prompt 只描述画面动作，必须要求 silent video, no spoken dialogue, no subtitles, no text，配音和字幕留给后期合成。`, dramaId, currentEpId, () => loadEpisode(currentEpId))
+  runAgent('storyboard_breaker', `请按正常竖屏短剧生产标准重拆分镜：第一集控制在 90-180 秒、12-15 个核心镜头，前 3-5 秒必须有强钩子。视频模型：${label}。video_prompt 只描述画面动作，必须要求 silent video, no spoken dialogue, no subtitles, no text，配音和字幕留给后期合成。`, dramaId, currentEpId, () => refresh(currentEpId))
 }
 async function genSample(id) {
   const currentEpId = epId.value
-  try { await characterAPI.voiceSample(id, currentEpId); toast.success('试听已生成'); loadEpisode(currentEpId) } catch (e) { toast.error(e.message) }
+  try { await characterAPI.voiceSample(id, currentEpId); toast.success('试听已生成'); refresh(currentEpId) } catch (e) { toast.error(e.message) }
 }
 async function addShot() { await storyboardAPI.create({ episode_id: epId.value, storyboard_number: sbs.value.length + 1, title: `镜头${sbs.value.length + 1}`, duration: 10 }); refresh() }
 
